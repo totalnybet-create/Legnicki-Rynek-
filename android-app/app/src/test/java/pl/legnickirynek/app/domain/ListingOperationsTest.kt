@@ -9,31 +9,48 @@ import pl.legnickirynek.app.model.ListingStatus
 
 class ListingOperationsTest {
     @Test
-    fun `dodawanie umieszcza nowe ogłoszenie na początku i przypisuje sprzedawcę`() {
+    fun `dodawanie umieszcza nowe ogłoszenie na początku i przypisuje właściciela`() {
         val existing = listing(id = "old")
         val added = listing(id = "new", sellerName = "Użytkownik")
 
         val result = ListingOperations.add(
             listings = listOf(existing),
             listing = added,
+            ownerId = "user-123",
             sellerName = "Jan"
         )
 
         assertEquals(listOf("new", "old"), result.map { it.id })
+        assertEquals("user-123", result.first().ownerId)
         assertEquals("Jan", result.first().sellerName)
     }
 
     @Test
-    fun `edycja zachowuje datę utworzenia i stan ulubionych`() {
+    fun `dodawanie zachowuje właściciela z modelu gdy nie przekazano nowego identyfikatora`() {
+        val added = listing(id = "new", ownerId = "existing-owner")
+
+        val result = ListingOperations.add(
+            listings = emptyList(),
+            listing = added,
+            sellerName = "Jan"
+        )
+
+        assertEquals("existing-owner", result.single().ownerId)
+    }
+
+    @Test
+    fun `edycja zachowuje datę utworzenia stan ulubionych i właściciela`() {
         val existing = listing(
             id = "1",
             title = "Stary tytuł",
+            ownerId = "owner-1",
             createdAt = 100L,
             updatedAt = 100L,
             isFavorite = true
         )
         val edited = existing.copy(
             title = "Nowy tytuł",
+            ownerId = "other-owner",
             createdAt = 999L,
             isFavorite = false
         )
@@ -45,6 +62,7 @@ class ListingOperationsTest {
         ).single()
 
         assertEquals("Nowy tytuł", result.title)
+        assertEquals("owner-1", result.ownerId)
         assertEquals(100L, result.createdAt)
         assertEquals(200L, result.updatedAt)
         assertTrue(result.isFavorite)
@@ -86,6 +104,7 @@ class ListingOperationsTest {
     private fun listing(
         id: String,
         title: String = "Ogłoszenie",
+        ownerId: String = "",
         sellerName: String = "Użytkownik",
         createdAt: Long = 1L,
         updatedAt: Long = createdAt,
@@ -97,6 +116,7 @@ class ListingOperationsTest {
         location = "Legnica",
         categoryId = "inne",
         description = "Opis wystarczającej długości.",
+        ownerId = ownerId,
         sellerName = sellerName,
         createdAt = createdAt,
         updatedAt = updatedAt,
