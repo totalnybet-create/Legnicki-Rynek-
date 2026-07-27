@@ -1,5 +1,6 @@
 package pl.legnickirynek.app.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -24,7 +25,7 @@ data class ListingEntity(
     val categoryId: String,
     val description: String,
     val imageUris: List<String>,
-    val ownerId: String,
+    @ColumnInfo(defaultValue = "''") val ownerId: String,
     val sellerName: String,
     val createdAt: Long,
     val updatedAt: Long,
