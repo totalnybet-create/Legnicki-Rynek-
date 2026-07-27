@@ -3,6 +3,7 @@ package pl.legnickirynek.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,8 +11,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pl.legnickirynek.app.data.LegnicaCalendarEventsRepository
 import pl.legnickirynek.app.data.LegnicaRssNewsRepository
 import pl.legnickirynek.app.data.ListingRepository
+import pl.legnickirynek.app.data.LocalEventsRepository
 import pl.legnickirynek.app.data.LocalNewsRepository
 import pl.legnickirynek.app.data.LocalStore
 import pl.legnickirynek.app.data.MessageRepository
@@ -21,8 +24,8 @@ import pl.legnickirynek.app.data.OpenMeteoWeatherRepository
 import pl.legnickirynek.app.data.ProfilePreferencesStore
 import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.data.WeatherRepository
-import pl.legnickirynek.app.data.remote.UrlConnectionTextHttpClient
 import pl.legnickirynek.app.data.local.AppDatabase
+import pl.legnickirynek.app.data.remote.UrlConnectionTextHttpClient
 import pl.legnickirynek.app.domain.ListingAccessPolicy
 import pl.legnickirynek.app.domain.ListingOperations
 import pl.legnickirynek.app.domain.ListingValidator
@@ -30,8 +33,9 @@ import pl.legnickirynek.app.domain.UserIdentity
 import pl.legnickirynek.app.model.ChatMessage
 import pl.legnickirynek.app.model.Conversation
 import pl.legnickirynek.app.model.Listing
-import pl.legnickirynek.app.model.LocalNewsItem
 import pl.legnickirynek.app.model.ListingStatus
+import pl.legnickirynek.app.model.LocalEvent
+import pl.legnickirynek.app.model.LocalNewsItem
 import pl.legnickirynek.app.model.UserProfile
 import pl.legnickirynek.app.model.WeatherSnapshot
 
@@ -40,6 +44,7 @@ data class AppUiState(
     val conversations: List<Conversation> = emptyList(),
     val profile: UserProfile = UserProfile(),
     val weather: WeatherSnapshot? = null,
+    val events: List<LocalEvent> = SampleData.events,
     val localNews: List<LocalNewsItem> = emptyList(),
     val localDataLoading: Boolean = false,
     val localDataError: String? = null,
@@ -60,6 +65,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val httpClient = UrlConnectionTextHttpClient()
     private val weatherRepository: WeatherRepository = OpenMeteoWeatherRepository(httpClient)
     private val localNewsRepository: LocalNewsRepository = LegnicaRssNewsRepository(httpClient)
+    private val localEventsRepository: LocalEventsRepository =
+        LegnicaCalendarEventsRepository(httpClient)
 
     private val _uiState = MutableStateFlow(
         AppUiState(
@@ -88,6 +95,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update { current ->
                     state.copy(
                         weather = current.weather,
+                        events = current.events,
                         localNews = current.localNews,
                         localDataLoading = current.localDataLoading,
                         localDataError = current.localDataError,
@@ -106,6 +114,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         messageRepository.observeMessages(conversationId)
 
     fun refreshLocalData() {
+        if (_uiState.value.localDataLoading) return
+
         _uiState.update {
             it.copy(
                 localDataLoading = true,
@@ -114,16 +124,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
-            val weatherResult = runCatching { weatherRepository.getCurrentWeather() }
-            val newsResult = runCatching { localNewsRepository.getLatestNews() }
+            val weatherDeferred = async { runCatching { weatherRepository.getCurrentWeather() } }
+            val newsDeferred = async { runCatching { localNewsRepository.getLatestNews() } }
+            val eventsDeferred = async { runCatching { localEventsRepository.getUpcomingEvents() } }
+            val weatherResult = weatherDeferred.await()
+            val newsResult = newsDeferred.await()
+            val eventsResult = eventsDeferred.await()
             val errors = listOfNotNull(
                 weatherResult.exceptionOrNull()?.message,
-                newsResult.exceptionOrNull()?.message
+                newsResult.exceptionOrNull()?.message,
+                eventsResult.exceptionOrNull()?.message
             ).distinct()
 
             _uiState.update { current ->
                 current.copy(
                     weather = weatherResult.getOrNull() ?: current.weather,
+                    events = eventsResult.getOrNull()
+                        ?.takeIf(List<LocalEvent>::isNotEmpty)
+                        ?: current.events,
                     localNews = newsResult.getOrNull() ?: current.localNews,
                     localDataLoading = false,
                     localDataError = errors.takeIf { it.isNotEmpty() }?.joinToString(" ")
