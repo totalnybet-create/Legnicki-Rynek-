@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "pl.legnickirynek.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "pl.legnickirynek.app"
