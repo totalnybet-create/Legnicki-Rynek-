@@ -3,11 +3,15 @@ package pl.legnickirynek.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pl.legnickirynek.app.data.ListingRepository
@@ -18,8 +22,10 @@ import pl.legnickirynek.app.data.OfflineMessageRepository
 import pl.legnickirynek.app.data.ProfilePreferencesStore
 import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.data.local.AppDatabase
+import pl.legnickirynek.app.domain.ListingAccessPolicy
 import pl.legnickirynek.app.domain.ListingOperations
 import pl.legnickirynek.app.domain.ListingValidator
+import pl.legnickirynek.app.domain.UserIdentity
 import pl.legnickirynek.app.model.ChatMessage
 import pl.legnickirynek.app.model.Conversation
 import pl.legnickirynek.app.model.Listing
@@ -48,7 +54,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(
         AppUiState(
             listings = initialListings,
-            conversations = SampleData.conversations,
+            conversations = emptyList(),
             profile = initialProfile
         )
     )
@@ -58,51 +64,68 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             migrateLegacyData()
 
-            combine(
-                listingRepository.observeListings(),
-                messageRepository.observeConversations(),
-                profileStore.profile
-            ) { listings, conversations, profile ->
-                AppUiState(
-                    listings = listings,
-                    conversations = conversations,
-                    profile = profile
-                )
-            }.collect { state ->
-                _uiState.update { current ->
-                    state.copy(dataError = current.dataError)
+            profileStore.profile
+                .flatMapLatest { profile ->
+                    val accountId = activeAccountId(profile)
+                    val conversations = if (accountId.isBlank()) {
+                        flowOf(emptyList())
+                    } else {
+                        messageRepository.observeConversations(accountId)
+                    }
+
+                    combine(
+                        listingRepository.observeListings(),
+                        conversations
+                    ) { listings, accountConversations ->
+                        AppUiState(
+                            listings = listings,
+                            conversations = accountConversations,
+                            profile = profile
+                        )
+                    }
                 }
-            }
+                .collect { state ->
+                    _uiState.update { current ->
+                        state.copy(dataError = current.dataError)
+                    }
+                }
         }
     }
 
     fun observeConversation(conversationId: String): Flow<Conversation?> =
-        messageRepository.observeConversation(conversationId)
+        profileStore.profile.flatMapLatest { profile ->
+            val accountId = activeAccountId(profile)
+            if (accountId.isBlank() || conversationId.isBlank()) {
+                flowOf(null)
+            } else {
+                messageRepository.observeConversation(accountId, conversationId)
+            }
+        }
 
     fun observeMessages(conversationId: String): Flow<List<ChatMessage>> =
-        messageRepository.observeMessages(conversationId)
+        profileStore.profile.flatMapLatest { profile ->
+            val accountId = activeAccountId(profile)
+            if (accountId.isBlank() || conversationId.isBlank()) {
+                flowOf(emptyList())
+            } else {
+                messageRepository.observeMessages(accountId, conversationId)
+            }
+        }
 
     fun addListing(listing: Listing) {
+        val profile = _uiState.value.profile
+        val ownerId = activeAccountId(profile)
+        if (ownerId.isBlank()) {
+            setDataError("Zaloguj się, aby dodać ogłoszenie.")
+            return
+        }
         if (!validateListing(listing)) return
 
-        val currentListings = _uiState.value.listings
-        val profile = _uiState.value.profile
-        val sellerName = profile
-            .takeIf { it.loggedIn }
-            ?.name
-            .orEmpty()
-            .ifBlank { listing.sellerName }
-        val ownerId = profile
-            .takeIf { it.loggedIn }
-            ?.let(::profileOwnerId)
-            .orEmpty()
-            .ifBlank { listing.ownerId }
-
         val newListings = ListingOperations.add(
-            listings = currentListings,
+            listings = _uiState.value.listings,
             listing = listing,
             ownerId = ownerId,
-            sellerName = sellerName
+            sellerName = profile.name.ifBlank { listing.sellerName }
         )
         val listingToInsert = newListings.first()
 
@@ -112,15 +135,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateListing(listing: Listing) {
-        if (_uiState.value.listings.none { it.id == listing.id }) {
+        val currentListing = _uiState.value.listings.firstOrNull { it.id == listing.id }
+        if (currentListing == null) {
             setDataError("Nie znaleziono ogłoszenia do edycji.")
+            return
+        }
+        if (!ListingAccessPolicy.canManage(currentListing, _uiState.value.profile)) {
+            setDataError("Nie masz uprawnień do edycji tego ogłoszenia.")
             return
         }
         if (!validateListing(listing)) return
 
+        val securedListing = listing.copy(
+            ownerId = currentListing.ownerId,
+            sellerName = currentListing.sellerName,
+            createdAt = currentListing.createdAt
+        )
         val newListings = ListingOperations.update(
             listings = _uiState.value.listings,
-            listing = listing,
+            listing = securedListing,
             updatedAt = System.currentTimeMillis()
         )
         val updatedListing = newListings.firstOrNull { it.id == listing.id }
@@ -135,8 +168,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteListing(id: String) {
-        if (_uiState.value.listings.none { it.id == id }) {
+        val listing = _uiState.value.listings.firstOrNull { it.id == id }
+        if (listing == null) {
             setDataError("Nie znaleziono ogłoszenia do usunięcia.")
+            return
+        }
+        if (!ListingAccessPolicy.canManage(listing, _uiState.value.profile)) {
+            setDataError("Nie masz uprawnień do usunięcia tego ogłoszenia.")
             return
         }
 
@@ -172,8 +210,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateListingStatus(id: String, status: ListingStatus) {
-        if (_uiState.value.listings.none { it.id == id }) {
+        val listing = _uiState.value.listings.firstOrNull { it.id == id }
+        if (listing == null) {
             setDataError("Nie znaleziono ogłoszenia.")
+            return
+        }
+        if (!ListingAccessPolicy.canManage(listing, _uiState.value.profile)) {
+            setDataError("Nie masz uprawnień do zmiany statusu tego ogłoszenia.")
             return
         }
 
@@ -194,15 +237,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun ensureConversation(listing: Listing): String {
-        val identity = _uiState.value.profile.email.ifBlank { "local-user" }
-        val conversationId = "conversation-${listing.id}-${stableId(identity)}"
-        val existing = _uiState.value.conversations.firstOrNull { it.id == conversationId }
+    fun ensureConversation(listing: Listing): String? {
+        val profile = _uiState.value.profile
+        val accountId = activeAccountId(profile)
+        if (accountId.isBlank()) {
+            setDataError("Zaloguj się, aby wysłać wiadomość.")
+            return null
+        }
+        if (ListingAccessPolicy.canManage(listing, profile)) {
+            setDataError("Nie możesz rozpocząć rozmowy z własnym ogłoszeniem.")
+            return null
+        }
+
+        val existing = _uiState.value.conversations.firstOrNull {
+            it.accountId == accountId && it.listingId == listing.id
+        }
         if (existing != null) return existing.id
 
         val now = System.currentTimeMillis()
         val conversation = Conversation(
-            id = conversationId,
+            id = "conversation-${UUID.randomUUID()}",
+            accountId = accountId,
             person = listing.sellerName,
             listingId = listing.id,
             listingTitle = listing.title,
@@ -213,18 +268,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val conversations = listOf(conversation) + _uiState.value.conversations
 
         applyConversationChange(conversations) {
-            messageRepository.upsertConversation(conversation)
+            messageRepository.upsertConversation(accountId, conversation)
         }
-        return conversationId
+        return conversation.id
     }
 
     fun sendMessage(conversationId: String, body: String) {
-        val cleanBody = body.trim().take(2000)
-        if (cleanBody.isBlank()) return
+        val accountId = activeAccountId(_uiState.value.profile)
+        if (accountId.isBlank()) {
+            setDataError("Zaloguj się, aby wysłać wiadomość.")
+            return
+        }
 
-        val conversation = _uiState.value.conversations
-            .firstOrNull { it.id == conversationId }
-            ?: return
+        val cleanBody = body.trim().take(MAX_MESSAGE_LENGTH)
+        if (cleanBody.isBlank()) {
+            setDataError("Treść wiadomości nie może być pusta.")
+            return
+        }
+
+        val conversation = _uiState.value.conversations.firstOrNull {
+            it.id == conversationId && it.accountId == accountId
+        } ?: run {
+            setDataError("Nie znaleziono rozmowy dla aktywnego konta.")
+            return
+        }
+
         val now = System.currentTimeMillis()
         val updatedConversation = conversation.copy(
             lastMessage = cleanBody,
@@ -234,7 +302,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val updatedConversations = listOf(updatedConversation) +
             _uiState.value.conversations.filterNot { it.id == conversationId }
         val message = ChatMessage(
-            id = "message-$now-${stableId(cleanBody)}",
+            id = "message-${UUID.randomUUID()}",
             conversationId = conversationId,
             senderName = _uiState.value.profile.name.ifBlank { "Ty" },
             body = cleanBody,
@@ -244,11 +312,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
 
         applyConversationChange(updatedConversations) {
-            messageRepository.sendMessage(updatedConversation, message)
+            messageRepository.sendMessage(accountId, updatedConversation, message)
         }
     }
 
     fun markConversationRead(conversationId: String) {
+        val accountId = activeAccountId(_uiState.value.profile)
+        if (accountId.isBlank()) return
+        if (_uiState.value.conversations.none {
+                it.id == conversationId && it.accountId == accountId
+            }
+        ) return
+
         val updatedConversations = _uiState.value.conversations.map { conversation ->
             if (conversation.id == conversationId) {
                 conversation.copy(unreadCount = 0)
@@ -258,32 +333,63 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         applyConversationChange(updatedConversations) {
-            messageRepository.markConversationRead(conversationId)
+            messageRepository.markConversationRead(accountId, conversationId)
         }
     }
 
     fun deleteConversation(conversationId: String) {
+        val accountId = activeAccountId(_uiState.value.profile)
+        if (accountId.isBlank()) {
+            setDataError("Zaloguj się, aby usunąć rozmowę.")
+            return
+        }
+        if (_uiState.value.conversations.none {
+                it.id == conversationId && it.accountId == accountId
+            }
+        ) {
+            setDataError("Nie znaleziono rozmowy dla aktywnego konta.")
+            return
+        }
+
         val updatedConversations = _uiState.value.conversations
             .filterNot { it.id == conversationId }
 
         applyConversationChange(updatedConversations) {
-            messageRepository.deleteConversation(conversationId)
+            messageRepository.deleteConversation(accountId, conversationId)
         }
     }
 
     fun login(name: String, email: String) {
-        val cleanEmail = email.trim().lowercase()
+        val cleanName = name.trim()
+        val cleanEmail = email.trim().lowercase(Locale.ROOT)
+        val accountId = UserIdentity.fromEmail(cleanEmail)
+
+        if (cleanName.length < 2) {
+            setDataError("Podaj prawidłową nazwę użytkownika.")
+            return
+        }
+        if (accountId.isBlank() || '@' !in cleanEmail) {
+            setDataError("Podaj prawidłowy adres e-mail.")
+            return
+        }
+
         val profile = UserProfile(
-            id = stableId(cleanEmail),
-            name = name.trim(),
+            id = accountId,
+            name = cleanName,
             email = cleanEmail,
             loggedIn = true
         )
-        applyProfileChange(profile)
+        applyProfileChange(profile) {
+            listingRepository.claimLegacyListings(accountId, cleanName)
+            messageRepository.claimLegacyConversations(accountId)
+            profileStore.save(profile)
+        }
     }
 
     fun logout() {
-        applyProfileChange(UserProfile())
+        applyProfileChange(UserProfile()) {
+            profileStore.save(UserProfile())
+        }
     }
 
     fun clearDataError() {
@@ -304,6 +410,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (!LocalStore.isMessageInitializationComplete(appContext)) {
                 if (messageRepository.conversationCount() == 0) {
                     messageRepository.seed(
+                        accountId = LEGACY_LOCAL_ACCOUNT_ID,
                         conversations = SampleData.conversations,
                         messages = SampleData.messages
                     )
@@ -326,8 +433,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return false
     }
 
-    private fun profileOwnerId(profile: UserProfile): String = profile.id
-        .ifBlank { profile.email.takeIf(String::isNotBlank)?.let(::stableId).orEmpty() }
+    private fun activeAccountId(profile: UserProfile): String = profile
+        .takeIf { it.loggedIn }
+        ?.let { it.id.ifBlank { UserIdentity.fromEmail(it.email) } }
+        .orEmpty()
 
     private fun setDataError(message: String) {
         _uiState.update { it.copy(dataError = message) }
@@ -391,17 +500,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun applyProfileChange(profile: UserProfile) {
+    private fun applyProfileChange(
+        profile: UserProfile,
+        persist: suspend () -> Unit
+    ) {
         val previousProfile = _uiState.value.profile
+        val previousConversations = _uiState.value.conversations
         _uiState.update {
             it.copy(
                 profile = profile,
+                conversations = emptyList(),
                 dataError = null
             )
         }
 
         viewModelScope.launch {
-            runCatching { profileStore.save(profile) }
+            runCatching { persist() }
                 .onFailure { error ->
                     _uiState.update { current ->
                         current.copy(
@@ -410,6 +524,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             } else {
                                 current.profile
                             },
+                            conversations = if (current.profile == profile) {
+                                previousConversations
+                            } else {
+                                current.conversations
+                            },
                             dataError = error.message ?: "Nie udało się zapisać profilu."
                         )
                     }
@@ -417,7 +536,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun stableId(value: String): String = value.hashCode()
-        .toString()
-        .replace('-', 'n')
+    private companion object {
+        const val MAX_MESSAGE_LENGTH = 2_000
+        const val LEGACY_LOCAL_ACCOUNT_ID = "legacy-local"
+    }
 }
