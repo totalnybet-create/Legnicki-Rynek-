@@ -1,5 +1,8 @@
 package pl.legnickirynek.app.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,9 +75,10 @@ fun ListingDetailScreen(
     onToggleFavorite: () -> Unit,
     onStatusChange: (ListingStatus) -> Unit,
     onMessageSeller: () -> Unit = {},
-    onOpenMap: () -> Unit = {}
+    onOpenMap: (() -> Unit)? = null
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -141,7 +146,7 @@ fun ListingDetailScreen(
                 onRequestDelete = { showDeleteDialog = true },
                 onStatusChange = onStatusChange,
                 onMessageSeller = onMessageSeller,
-                onOpenMap = onOpenMap,
+                onOpenMap = onOpenMap ?: { openListingMap(context, listing) },
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -177,6 +182,34 @@ fun ListingDetailScreen(
             }
         )
     }
+}
+
+private fun openListingMap(context: Context, listing: Listing) {
+    val title = Uri.encode(listing.title)
+    val query = if (listing.hasCoordinates) {
+        "${listing.latitude},${listing.longitude}"
+    } else {
+        "${listing.location}, Legnica, Polska"
+    }
+    val geoUri = if (listing.hasCoordinates) {
+        val latitude = listing.latitude ?: return
+        val longitude = listing.longitude ?: return
+        Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude($title)")
+    } else {
+        Uri.parse("geo:0,0?q=${Uri.encode(query)}")
+    }
+    val mapIntent = Intent(Intent.ACTION_VIEW, geoUri).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    val fallbackUri = Uri.parse(
+        "https://www.openstreetmap.org/search?query=${Uri.encode(query)}"
+    )
+    val fallbackIntent = Intent(Intent.ACTION_VIEW, fallbackUri).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    runCatching { context.startActivity(mapIntent) }
+        .onFailure { runCatching { context.startActivity(fallbackIntent) } }
 }
 
 @Composable
