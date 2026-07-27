@@ -20,6 +20,12 @@ interface MessageDao {
     fun observeConversation(accountId: String, conversationId: String): Flow<ConversationEntity?>
 
     @Query(
+        "SELECT EXISTS(SELECT 1 FROM conversations " +
+            "WHERE id = :conversationId AND accountId = :accountId)"
+    )
+    suspend fun conversationExists(accountId: String, conversationId: String): Boolean
+
+    @Query(
         "SELECT messages.* FROM messages " +
             "INNER JOIN conversations ON conversations.id = messages.conversationId " +
             "WHERE messages.conversationId = :conversationId " +
@@ -51,7 +57,7 @@ interface MessageDao {
         lastMessage: String,
         updatedAt: Long,
         unreadCount: Int
-    )
+    ): Int
 
     @Query(
         "UPDATE messages SET isRead = 1 " +
@@ -59,25 +65,25 @@ interface MessageDao {
             "AND EXISTS (SELECT 1 FROM conversations " +
             "WHERE id = :conversationId AND accountId = :accountId)"
     )
-    suspend fun markIncomingMessagesRead(accountId: String, conversationId: String)
+    suspend fun markIncomingMessagesRead(accountId: String, conversationId: String): Int
 
     @Query(
         "UPDATE conversations SET unreadCount = 0 " +
             "WHERE id = :conversationId AND accountId = :accountId"
     )
-    suspend fun clearUnreadCount(accountId: String, conversationId: String)
+    suspend fun clearUnreadCount(accountId: String, conversationId: String): Int
 
     @Query(
         "DELETE FROM conversations " +
             "WHERE id = :conversationId AND accountId = :accountId"
     )
-    suspend fun deleteConversation(accountId: String, conversationId: String)
+    suspend fun deleteConversation(accountId: String, conversationId: String): Int
 
     @Query(
         "UPDATE conversations SET accountId = :accountId " +
             "WHERE accountId = '' OR accountId = 'legacy-local'"
     )
-    suspend fun claimLegacyConversations(accountId: String)
+    suspend fun claimLegacyConversations(accountId: String): Int
 
     @Query("SELECT COUNT(*) FROM conversations")
     suspend fun conversationCount(): Int
