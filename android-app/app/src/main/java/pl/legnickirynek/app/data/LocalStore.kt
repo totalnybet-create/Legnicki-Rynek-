@@ -67,7 +67,8 @@ object LocalStore {
                 id = item.optString("id"),
                 name = item.optString("name"),
                 email = item.optString("email"),
-                loggedIn = item.optBoolean("loggedIn", false)
+                loggedIn = item.optBoolean("loggedIn", false),
+                remoteSession = item.optBoolean("remoteSession", false)
             )
         }.getOrDefault(UserProfile())
     }
