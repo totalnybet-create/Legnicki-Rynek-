@@ -65,80 +65,85 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun addListing(listing: Listing) {
+        val currentListings = _uiState.value.listings
         val sellerName = _uiState.value.profile
             .takeIf { it.loggedIn }
             ?.name
             .orEmpty()
             .ifBlank { listing.sellerName }
-        val listingToInsert = ListingOperations.add(
-            listings = emptyList(),
+        val newListings = ListingOperations.add(
+            listings = currentListings,
             listing = listing,
             sellerName = sellerName
-        ).single()
+        )
+        val listingToInsert = newListings.first()
 
-        launchDataWrite {
+        applyListingChange(newListings) {
             listingRepository.upsert(listingToInsert)
         }
     }
 
     fun updateListing(listing: Listing) {
-        val updatedListing = ListingOperations.update(
+        val newListings = ListingOperations.update(
             listings = _uiState.value.listings,
             listing = listing,
             updatedAt = System.currentTimeMillis()
-        ).firstOrNull { it.id == listing.id } ?: return
+        )
+        val updatedListing = newListings.firstOrNull { it.id == listing.id } ?: return
 
-        launchDataWrite {
+        applyListingChange(newListings) {
             listingRepository.upsert(updatedListing)
         }
     }
 
     fun deleteListing(id: String) {
-        launchDataWrite {
+        val newListings = ListingOperations.delete(
+            listings = _uiState.value.listings,
+            id = id
+        )
+
+        applyListingChange(newListings) {
             listingRepository.delete(id)
         }
     }
 
     fun toggleFavorite(id: String) {
-        val updatedListing = ListingOperations.toggleFavorite(
+        val newListings = ListingOperations.toggleFavorite(
             listings = _uiState.value.listings,
             id = id
-        ).firstOrNull { it.id == id } ?: return
+        )
+        val updatedListing = newListings.firstOrNull { it.id == id } ?: return
 
-        launchDataWrite {
+        applyListingChange(newListings) {
             listingRepository.upsert(updatedListing)
         }
     }
 
     fun updateListingStatus(id: String, status: ListingStatus) {
-        val updatedListing = ListingOperations.updateStatus(
+        val newListings = ListingOperations.updateStatus(
             listings = _uiState.value.listings,
             id = id,
             status = status,
             updatedAt = System.currentTimeMillis()
-        ).firstOrNull { it.id == id } ?: return
+        )
+        val updatedListing = newListings.firstOrNull { it.id == id } ?: return
 
-        launchDataWrite {
+        applyListingChange(newListings) {
             listingRepository.upsert(updatedListing)
         }
     }
 
     fun login(name: String, email: String) {
-        launchDataWrite {
-            profileStore.save(
-                UserProfile(
-                    name = name,
-                    email = email,
-                    loggedIn = true
-                )
-            )
-        }
+        val profile = UserProfile(
+            name = name,
+            email = email,
+            loggedIn = true
+        )
+        applyProfileChange(profile)
     }
 
     fun logout() {
-        launchDataWrite {
-            profileStore.save(UserProfile())
-        }
+        applyProfileChange(UserProfile())
     }
 
     fun clearDataError() {
@@ -162,12 +167,56 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun launchDataWrite(block: suspend () -> Unit) {
+    private fun applyListingChange(
+        newListings: List<Listing>,
+        persist: suspend () -> Unit
+    ) {
+        val previousListings = _uiState.value.listings
+        _uiState.update {
+            it.copy(
+                listings = newListings,
+                dataError = null
+            )
+        }
+
         viewModelScope.launch {
-            runCatching { block() }
+            runCatching { persist() }
                 .onFailure { error ->
-                    _uiState.update {
-                        it.copy(dataError = error.message ?: "Nie udało się zapisać danych.")
+                    _uiState.update { current ->
+                        current.copy(
+                            listings = if (current.listings == newListings) {
+                                previousListings
+                            } else {
+                                current.listings
+                            },
+                            dataError = error.message ?: "Nie udało się zapisać ogłoszenia."
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun applyProfileChange(profile: UserProfile) {
+        val previousProfile = _uiState.value.profile
+        _uiState.update {
+            it.copy(
+                profile = profile,
+                dataError = null
+            )
+        }
+
+        viewModelScope.launch {
+            runCatching { profileStore.save(profile) }
+                .onFailure { error ->
+                    _uiState.update { current ->
+                        current.copy(
+                            profile = if (current.profile == profile) {
+                                previousProfile
+                            } else {
+                                current.profile
+                            },
+                            dataError = error.message ?: "Nie udało się zapisać profilu."
+                        )
                     }
                 }
         }
