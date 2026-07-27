@@ -80,7 +80,9 @@ class LocalNotificationService @Inject constructor(
 ) {
 
     private val notificationManager: NotificationManager
-        get() = context.getSystemService(NotificationManager::class.java)
+        get() = requireNotNull(context.getSystemService(NotificationManager::class.java)) {
+            "Systemowa usługa powiadomień jest niedostępna."
+        }
 
     fun post(
         notification: AppNotification,
