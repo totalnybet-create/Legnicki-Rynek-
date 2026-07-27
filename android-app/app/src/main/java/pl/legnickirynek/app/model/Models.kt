@@ -21,6 +21,7 @@ data class Listing(
     val categoryId: String,
     val description: String,
     val imageUris: List<String> = emptyList(),
+    val ownerId: String = "",
     val sellerName: String = "Użytkownik",
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,
@@ -57,6 +58,7 @@ data class ChatMessage(
 )
 
 data class UserProfile(
+    val id: String = "",
     val name: String = "",
     val email: String = "",
     val loggedIn: Boolean = false
