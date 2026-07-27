@@ -2,19 +2,21 @@ package pl.legnickirynek.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,16 +24,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.legnickirynek.app.model.UserProfile
-import pl.legnickirynek.app.ui.theme.LegnicaBackground
-import pl.legnickirynek.app.ui.theme.LegnicaCoral
-import pl.legnickirynek.app.ui.theme.LegnicaMuted
-import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
 @Composable
 fun ProfileScreen(
@@ -46,109 +44,78 @@ fun ProfileScreen(
     var message by rememberSaveable { mutableStateOf("") }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LegnicaBackground),
-        contentPadding = PaddingValues(bottom = 28.dp)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LegnicaNavy)
-                    .padding(20.dp)
-            ) {
-                Text("Profil", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold)
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    "Zarządzaj kontem i swoimi ogłoszeniami.",
-                    color = Color.White.copy(alpha = 0.74f)
-                )
+            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(22.dp)) {
+                Text("Profil", color = MaterialTheme.colorScheme.onPrimary, fontSize = 29.sp, fontWeight = FontWeight.Black)
+                Text("Twoje konto i aktywność lokalna", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .76f))
             }
         }
-
         item {
             Card(
-                modifier = Modifier
-                    .padding(18.dp)
-                    .fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                shape = RoundedCornerShape(26.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    if (profile.loggedIn) {
-                        Text("Witaj, ${profile.name}", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(profile.email, color = LegnicaMuted)
-                        Text("Moje ogłoszenia: $listingCount", fontWeight = FontWeight.SemiBold)
-                        Text("Ulubione: $favoriteCount", color = LegnicaMuted)
-                        Button(
-                            onClick = {
-                                onLogout()
-                                message = "Wylogowano."
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = LegnicaNavy)
-                        ) {
-                            Text("Wyloguj", fontWeight = FontWeight.Bold)
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(72.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                            Text((profile.name.ifBlank { "LR" }).take(2).uppercase(), fontSize = 24.sp, fontWeight = FontWeight.Black)
                         }
-                    } else {
-                        Text("Zaloguj się", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Dane konta są zapisywane lokalnie w telefonie.",
-                            color = LegnicaMuted
-                        )
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { name = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Imię") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        OutlinedTextField(
-                            value = email,
-                            onValueChange = { email = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("E-mail") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        Button(
-                            onClick = {
-                                val cleanName = name.trim()
-                                val cleanEmail = email.trim()
-                                if (cleanName.length < 2) {
-                                    message = "Podaj imię."
-                                } else if (!cleanEmail.contains("@") || !cleanEmail.contains(".")) {
-                                    message = "Podaj prawidłowy adres e-mail."
-                                } else {
-                                    onLogin(cleanName, cleanEmail)
-                                    message = "Zalogowano."
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = LegnicaCoral)
-                        ) {
-                            Text("Zaloguj", fontWeight = FontWeight.ExtraBold)
+                        Column(Modifier.padding(start = 16.dp)) {
+                            Text(if (profile.loggedIn) profile.name else "Gość", fontSize = 23.sp, fontWeight = FontWeight.Black)
+                            Text(if (profile.loggedIn) profile.email else "Uzupełnij dane profilu", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-
-                    if (message.isNotBlank()) {
-                        Text(
-                            text = message,
-                            color = if (message == "Zalogowano." || message == "Wylogowano.") LegnicaNavy else LegnicaCoral,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StatCard("Ogłoszenia", listingCount.toString(), Modifier.weight(1f))
+                        StatCard("Ulubione", favoriteCount.toString(), Modifier.weight(1f))
+                    }
+                    if (profile.loggedIn) {
+                        ProfileOption("Moje ogłoszenia", "Zarządzaj opublikowanymi ofertami")
+                        ProfileOption("Ulubione", "Wróć do zapisanych ogłoszeń")
+                        ProfileOption("Ustawienia", "Wygląd, prywatność i powiadomienia")
+                        Button(onClick = onLogout, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) { Text("Wyloguj") }
+                    } else {
+                        Text("Podgląd formularza profilu", fontWeight = FontWeight.Bold)
+                        OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("Imię") }, singleLine = true, shape = RoundedCornerShape(16.dp))
+                        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("E-mail") }, singleLine = true, shape = RoundedCornerShape(16.dp))
+                        Button(
+                            onClick = {
+                                if (name.trim().length >= 2 && email.contains("@")) onLogin(name.trim(), email.trim()) else message = "Uzupełnij poprawnie pola."
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp)
+                        ) { Text("Zapisz profil", fontWeight = FontWeight.Bold) }
+                        if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Card(modifier, shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ProfileOption(title: String, subtitle: String) {
+    Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            }
+            Text("›", fontSize = 28.sp, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
