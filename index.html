@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Legnicki Rynek — lokalne ogłoszenia, wydarzenia i aktualności z Legnicy.">
+  <title>Legnicki Rynek</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Legnicki Rynek — strona główna">
+        <span class="brand-mark">LR</span>
+        <span>Legnicki Rynek</span>
+      </a>
+      <div class="header-actions">
+        <button class="button button-ghost" data-open-login>Zaloguj się</button>
+        <button class="button button-primary" data-open-ad>Dodaj ogłoszenie</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <p class="eyebrow">Lokalnie. Szybko. Bez zbędnego szukania.</p>
+          <h1>Wszystko, czego szukasz w Legnicy — w jednym miejscu.</h1>
+          <p class="hero-copy">Ogłoszenia, usługi, praca, nieruchomości, motoryzacja oraz najważniejsze wydarzenia z miasta.</p>
+          <form class="search-bar" id="search-form">
+            <label class="sr-only" for="search">Szukaj ogłoszeń</label>
+            <input id="search" name="search" type="search" placeholder="Czego szukasz? np. rower, mieszkanie, praca">
+            <button class="button button-primary" type="submit">Szukaj</button>
+          </form>
+        </div>
+        <aside class="hero-card" aria-label="Statystyki serwisu">
+          <strong>Legnica w liczbach</strong>
+          <div class="stats">
+            <div><span id="stat-ads">128</span><small>ogłoszeń</small></div>
+            <div><span>12</span><small>kategorii</small></div>
+            <div><span>24/7</span><small>dostęp</small></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section container" aria-labelledby="categories-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Kategorie</p>
+          <h2 id="categories-title">Znajdź szybciej</h2>
+        </div>
+      </div>
+      <div class="category-grid" id="category-grid"></div>
+    </section>
+
+    <section class="section section-muted" aria-labelledby="news-title">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Na czasie</p>
+            <h2 id="news-title">Wydarzenia i aktualności</h2>
+          </div>
+          <div class="slider-controls" aria-label="Sterowanie listą wydarzeń">
+            <button class="icon-button" id="news-prev" aria-label="Poprzednie wydarzenia">←</button>
+            <button class="icon-button" id="news-next" aria-label="Następne wydarzenia">→</button>
+          </div>
+        </div>
+        <div class="news-track" id="news-track"></div>
+      </div>
+    </section>
+
+    <section class="section container" aria-labelledby="ads-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Najnowsze</p>
+          <h2 id="ads-title">Ogłoszenia</h2>
+        </div>
+        <select id="category-filter" aria-label="Filtruj po kategorii">
+          <option value="all">Wszystkie kategorie</option>
+        </select>
+      </div>
+      <div class="ad-grid" id="ad-grid"></div>
+      <p class="empty-state" id="empty-state" hidden>Brak wyników dla wybranego filtra.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <strong>Legnicki Rynek</strong>
+        <p>Lokalna platforma ogłoszeń i informacji.</p>
+      </div>
+      <small>© 2026 Legnicki Rynek</small>
+    </div>
+  </footer>
+
+  <dialog id="login-dialog">
+    <form method="dialog" class="dialog-card" id="login-form">
+      <button class="dialog-close" value="cancel" aria-label="Zamknij">×</button>
+      <p class="eyebrow">Konto</p>
+      <h2>Zaloguj się</h2>
+      <label>E-mail<input type="email" name="email" required placeholder="ty@example.com"></label>
+      <label>Hasło<input type="password" name="password" required minlength="6"></label>
+      <button class="button button-primary button-full" value="default">Zaloguj się</button>
+      <p class="form-message" id="login-message"></p>
+    </form>
+  </dialog>
+
+  <dialog id="ad-dialog">
+    <form method="dialog" class="dialog-card" id="ad-form">
+      <button class="dialog-close" value="cancel" aria-label="Zamknij">×</button>
+      <p class="eyebrow">Nowe ogłoszenie</p>
+      <h2>Dodaj ogłoszenie</h2>
+      <label>Tytuł<input type="text" name="title" required minlength="4" maxlength="80"></label>
+      <label>Kategoria<select name="category" id="ad-category" required></select></label>
+      <label>Cena<input type="number" name="price" min="0" step="1" required></label>
+      <label>Lokalizacja<input type="text" name="location" value="Legnica" required></label>
+      <label>Opis<textarea name="description" rows="4" required minlength="10"></textarea></label>
+      <button class="button button-primary button-full" value="default">Opublikuj</button>
+      <p class="form-message" id="ad-message"></p>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
