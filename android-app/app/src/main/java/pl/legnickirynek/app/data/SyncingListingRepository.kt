@@ -9,7 +9,8 @@ import pl.legnickirynek.app.model.Listing
 class SyncingListingRepository(
     private val localRepository: ListingRepository,
     private val remoteService: RemoteListingService,
-    private val syncStore: ListingSyncStateStore
+    private val syncStore: ListingSyncStateStore,
+    private val imagePublisher: ListingImagePublisher = PassThroughListingImagePublisher
 ) : ListingRepository {
     private val syncMutex = Mutex()
 
@@ -28,7 +29,9 @@ class SyncingListingRepository(
     override suspend fun upsert(listing: Listing) {
         localRepository.upsert(listing)
         if (remoteSyncEnabled) {
-            runCatching { remoteService.upsertListing(listing) }
+            runCatching {
+                remoteService.upsertListing(prepareForRemote(listing))
+            }
         }
     }
 
@@ -36,7 +39,9 @@ class SyncingListingRepository(
         localRepository.upsertAll(listings)
         if (remoteSyncEnabled) {
             listings.forEach { listing ->
-                runCatching { remoteService.upsertListing(listing) }
+                runCatching {
+                    remoteService.upsertListing(prepareForRemote(listing))
+                }
             }
         }
     }
@@ -73,7 +78,8 @@ class SyncingListingRepository(
                     deletedRemotely++
                 }
                 .onFailure { error ->
-                    errors += error.message ?: "Nie udało się zsynchronizować usunięcia ogłoszenia."
+                    errors += error.message
+                        ?: "Nie udało się zsynchronizować usunięcia ogłoszenia."
                 }
         }
 
@@ -103,32 +109,63 @@ class SyncingListingRepository(
                     runCatching { localRepository.upsert(remote) }
                         .onSuccess { pulled++ }
                         .onFailure { error ->
-                            errors += error.message ?: "Nie udało się zapisać ogłoszenia z API."
+                            errors += error.message
+                                ?: "Nie udało się zapisać ogłoszenia z API."
                         }
                 }
 
                 local != null && remote == null -> {
-                    runCatching { remoteService.upsertListing(local) }
+                    runCatching {
+                        remoteService.upsertListing(prepareForRemote(local))
+                    }
                         .onSuccess { pushed++ }
                         .onFailure { error ->
-                            errors += error.message ?: "Nie udało się wysłać ogłoszenia do API."
+                            errors += error.message
+                                ?: "Nie udało się wysłać ogłoszenia do API."
                         }
                 }
 
                 local != null && remote != null && remote.updatedAt > local.updatedAt -> {
-                    val merged = mergeRemoteIntoLocal(remote = remote, local = local)
-                    runCatching { localRepository.upsert(merged) }
+                    runCatching {
+                        val merged = mergeRemoteIntoLocal(remote = remote, local = local)
+                        val prepared = prepareForRemote(merged)
+                        localRepository.upsert(prepared)
+                        if (prepared.imageUris.any(::isLocalContentUri)) {
+                            // Pozostaw lokalne URI do ponowienia przy następnym odświeżeniu.
+                        } else if (prepared.imageUris != remote.imageUris) {
+                            remoteService.upsertListing(prepared)
+                            pushed++
+                        }
+                    }
                         .onSuccess { pulled++ }
                         .onFailure { error ->
-                            errors += error.message ?: "Nie udało się zaktualizować lokalnego ogłoszenia."
+                            errors += error.message
+                                ?: "Nie udało się zaktualizować lokalnego ogłoszenia."
                         }
                 }
 
                 local != null && remote != null && local.updatedAt > remote.updatedAt -> {
-                    runCatching { remoteService.upsertListing(local) }
+                    runCatching {
+                        remoteService.upsertListing(prepareForRemote(local))
+                    }
                         .onSuccess { pushed++ }
                         .onFailure { error ->
-                            errors += error.message ?: "Nie udało się zaktualizować ogłoszenia w API."
+                            errors += error.message
+                                ?: "Nie udało się zaktualizować ogłoszenia w API."
+                        }
+                }
+
+                local != null && remote != null &&
+                    local.updatedAt == remote.updatedAt &&
+                    local.imageUris.any(::isLocalContentUri) -> {
+                    runCatching {
+                        val prepared = prepareForRemote(local)
+                        remoteService.upsertListing(prepared)
+                    }
+                        .onSuccess { pushed++ }
+                        .onFailure { error ->
+                            errors += error.message
+                                ?: "Nie udało się opublikować zdjęć ogłoszenia."
                         }
                 }
             }
@@ -146,6 +183,14 @@ class SyncingListingRepository(
         )
     }
 
+    private suspend fun prepareForRemote(listing: Listing): Listing {
+        val prepared = imagePublisher.publishLocalImages(listing)
+        if (prepared != listing) {
+            localRepository.upsert(prepared)
+        }
+        return prepared
+    }
+
     private fun mergeRemoteIntoLocal(remote: Listing, local: Listing): Listing {
         val localOnlyImages = local.imageUris.filterNot(::isRemoteImageUrl)
         return remote.copy(
@@ -157,4 +202,7 @@ class SyncingListingRepository(
     private fun isRemoteImageUrl(value: String): Boolean =
         value.startsWith("https://", ignoreCase = true) ||
             value.startsWith("http://", ignoreCase = true)
+
+    private fun isLocalContentUri(value: String): Boolean =
+        value.startsWith("content://", ignoreCase = true)
 }
