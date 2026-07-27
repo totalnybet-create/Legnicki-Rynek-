@@ -11,10 +11,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pl.legnickirynek.app.BuildConfig
 import pl.legnickirynek.app.data.GeocodingRepository
 import pl.legnickirynek.app.data.LegnicaCalendarEventsRepository
 import pl.legnickirynek.app.data.LegnicaRssNewsRepository
 import pl.legnickirynek.app.data.ListingRepository
+import pl.legnickirynek.app.data.ListingSyncStore
 import pl.legnickirynek.app.data.LocalEventsRepository
 import pl.legnickirynek.app.data.LocalNewsRepository
 import pl.legnickirynek.app.data.LocalStore
@@ -25,8 +27,11 @@ import pl.legnickirynek.app.data.OfflineMessageRepository
 import pl.legnickirynek.app.data.OpenMeteoWeatherRepository
 import pl.legnickirynek.app.data.ProfilePreferencesStore
 import pl.legnickirynek.app.data.SampleData
+import pl.legnickirynek.app.data.SyncingListingRepository
 import pl.legnickirynek.app.data.WeatherRepository
 import pl.legnickirynek.app.data.local.AppDatabase
+import pl.legnickirynek.app.data.remote.JsonHttpClient
+import pl.legnickirynek.app.data.remote.RestRemoteListingService
 import pl.legnickirynek.app.data.remote.UrlConnectionTextHttpClient
 import pl.legnickirynek.app.domain.ListingAccessPolicy
 import pl.legnickirynek.app.domain.ListingOperations
@@ -59,18 +64,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val initialListings = LocalStore.loadListings(appContext)
         .ifEmpty { SampleData.listings }
     private val initialProfile = LocalStore.loadProfile(appContext)
-    private val listingRepository: ListingRepository = OfflineListingRepository(
-        database.listingDao()
+    private val offlineListingRepository = OfflineListingRepository(database.listingDao())
+    private val listingRepository: ListingRepository = SyncingListingRepository(
+        localRepository = offlineListingRepository,
+        remoteService = RestRemoteListingService(
+            baseUrl = BuildConfig.LISTINGS_API_BASE_URL,
+            bearerToken = BuildConfig.LISTINGS_API_TOKEN,
+            httpClient = JsonHttpClient()
+        ),
+        syncStore = ListingSyncStore(appContext)
     )
     private val messageRepository: MessageRepository = OfflineMessageRepository(database)
     private val profileStore = ProfilePreferencesStore(appContext)
-    private val httpClient = UrlConnectionTextHttpClient()
-    private val weatherRepository: WeatherRepository = OpenMeteoWeatherRepository(httpClient)
-    private val localNewsRepository: LocalNewsRepository = LegnicaRssNewsRepository(httpClient)
+    private val textHttpClient = UrlConnectionTextHttpClient()
+    private val weatherRepository: WeatherRepository =
+        OpenMeteoWeatherRepository(textHttpClient)
+    private val localNewsRepository: LocalNewsRepository =
+        LegnicaRssNewsRepository(textHttpClient)
     private val localEventsRepository: LocalEventsRepository =
-        LegnicaCalendarEventsRepository(httpClient)
+        LegnicaCalendarEventsRepository(textHttpClient)
     private val geocodingRepository: GeocodingRepository =
-        NominatimGeocodingRepository(httpClient)
+        NominatimGeocodingRepository(textHttpClient)
 
     private val _uiState = MutableStateFlow(
         AppUiState(
@@ -84,7 +98,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             migrateLegacyData()
-
+            refreshLocalData()
+        }
+        viewModelScope.launch {
             combine(
                 listingRepository.observeListings(),
                 messageRepository.observeConversations(),
@@ -108,7 +124,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        refreshLocalData()
     }
 
     fun observeConversation(conversationId: String): Flow<Conversation?> =
@@ -128,17 +143,30 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
-            val weatherDeferred = async { runCatching { weatherRepository.getCurrentWeather() } }
-            val newsDeferred = async { runCatching { localNewsRepository.getLatestNews() } }
-            val eventsDeferred = async { runCatching { localEventsRepository.getUpcomingEvents() } }
+            val weatherDeferred = async {
+                runCatching { weatherRepository.getCurrentWeather() }
+            }
+            val newsDeferred = async {
+                runCatching { localNewsRepository.getLatestNews() }
+            }
+            val eventsDeferred = async {
+                runCatching { localEventsRepository.getUpcomingEvents() }
+            }
+            val listingSyncDeferred = async {
+                runCatching { listingRepository.synchronize() }
+            }
             val weatherResult = weatherDeferred.await()
             val newsResult = newsDeferred.await()
             val eventsResult = eventsDeferred.await()
-            val errors = listOfNotNull(
-                weatherResult.exceptionOrNull()?.message,
-                newsResult.exceptionOrNull()?.message,
-                eventsResult.exceptionOrNull()?.message
-            ).distinct()
+            val listingSyncResult = listingSyncDeferred.await()
+            val syncReport = listingSyncResult.getOrNull()
+            val errors = buildList {
+                weatherResult.exceptionOrNull()?.message?.let(::add)
+                newsResult.exceptionOrNull()?.message?.let(::add)
+                eventsResult.exceptionOrNull()?.message?.let(::add)
+                listingSyncResult.exceptionOrNull()?.message?.let(::add)
+                syncReport?.errors?.let(::addAll)
+            }.distinct()
 
             _uiState.update { current ->
                 current.copy(
@@ -148,7 +176,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         ?: current.events,
                     localNews = newsResult.getOrNull() ?: current.localNews,
                     localDataLoading = false,
-                    localDataError = errors.takeIf { it.isNotEmpty() }?.joinToString(" ")
+                    localDataError = errors.takeIf { it.isNotEmpty() }
+                        ?.joinToString(" ")
                 )
             }
         }
@@ -383,8 +412,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     ownerId = ListingAccessPolicy.ownerIdFor(profile),
                     sellerName = ListingAccessPolicy.sellerNameFor(profile, "Użytkownik")
                 )
+                listingRepository.synchronize()
             }.onFailure { error ->
-                setDataError(error.message ?: "Nie udało się przypisać lokalnych ogłoszeń do konta.")
+                setDataError(
+                    error.message
+                        ?: "Nie udało się przypisać lokalnych ogłoszeń do konta."
+                )
             }
         }
     }
