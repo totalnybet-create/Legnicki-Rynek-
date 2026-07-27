@@ -7,7 +7,7 @@ object ListingOperations {
     fun add(
         listings: List<Listing>,
         listing: Listing,
-        ownerId: String,
+        ownerId: String = listing.ownerId,
         sellerName: String
     ): List<Listing> = listOf(
         listing.copy(
