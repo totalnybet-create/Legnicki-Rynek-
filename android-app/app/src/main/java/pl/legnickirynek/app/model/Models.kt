@@ -34,7 +34,8 @@ data class LocalEvent(
     val title: String,
     val date: String,
     val location: String,
-    val description: String
+    val description: String,
+    val sourceUrl: String = ""
 )
 
 data class Conversation(
