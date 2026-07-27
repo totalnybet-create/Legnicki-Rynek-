@@ -12,15 +12,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         ListingEntity::class,
         ConversationEntity::class,
-        MessageEntity::class
+        MessageEntity::class,
+        FavoriteEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(ListingConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun listingDao(): ListingDao
     abstract fun messageDao(): MessageDao
+    abstract fun favoriteDao(): FavoriteDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -103,6 +105,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS favorites (
+                        accountId TEXT NOT NULL,
+                        listingId TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        PRIMARY KEY(accountId, listingId),
+                        FOREIGN KEY(listingId) REFERENCES listings(id)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_favorites_accountId " +
+                        "ON favorites(accountId)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_favorites_listingId " +
+                        "ON favorites(listingId)"
+                )
+                database.execSQL(
+                    "INSERT OR IGNORE INTO favorites(accountId, listingId, createdAt) " +
+                        "SELECT 'legacy-local', id, updatedAt FROM listings WHERE isFavorite = 1"
+                )
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -113,7 +144,12 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "legnicki_rynek.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5
+                    )
                     .build()
                     .also { instance = it }
             }
