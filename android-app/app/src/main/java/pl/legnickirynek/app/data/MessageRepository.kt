@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.map
 import pl.legnickirynek.app.data.local.AppDatabase
 import pl.legnickirynek.app.data.local.toEntity
 import pl.legnickirynek.app.data.local.toModel
+import pl.legnickirynek.app.domain.ConversationAccessPolicy
 import pl.legnickirynek.app.model.ChatMessage
 import pl.legnickirynek.app.model.Conversation
 
@@ -55,7 +56,7 @@ class OfflineMessageRepository(
     }
 
     override suspend fun upsertConversation(accountId: String, conversation: Conversation) {
-        requireOwnedConversation(accountId, conversation)
+        ConversationAccessPolicy.requireAccess(conversation, accountId)
         messageDao.upsertConversation(conversation.toEntity())
     }
 
@@ -82,7 +83,7 @@ class OfflineMessageRepository(
         conversation: Conversation,
         message: ChatMessage
     ) {
-        requireOwnedConversation(accountId, conversation)
+        ConversationAccessPolicy.requireAccess(conversation, accountId)
         require(message.conversationId == conversation.id) {
             "Wiadomość nie należy do wskazanej rozmowy."
         }
@@ -120,14 +121,6 @@ class OfflineMessageRepository(
     }
 
     override suspend fun conversationCount(): Int = messageDao.conversationCount()
-
-    private fun requireOwnedConversation(accountId: String, conversation: Conversation) {
-        requireAccountId(accountId)
-        require(conversation.id.isNotBlank()) { "Identyfikator rozmowy nie może być pusty." }
-        require(conversation.accountId == accountId) {
-            "Rozmowa nie należy do aktywnego konta."
-        }
-    }
 
     private fun requireAccountAndConversation(accountId: String, conversationId: String) {
         requireAccountId(accountId)
