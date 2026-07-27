@@ -19,6 +19,7 @@ import pl.legnickirynek.app.data.ProfilePreferencesStore
 import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.data.local.AppDatabase
 import pl.legnickirynek.app.domain.ListingOperations
+import pl.legnickirynek.app.domain.ListingValidator
 import pl.legnickirynek.app.model.ChatMessage
 import pl.legnickirynek.app.model.Conversation
 import pl.legnickirynek.app.model.Listing
@@ -82,15 +83,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         messageRepository.observeMessages(conversationId)
 
     fun addListing(listing: Listing) {
+        if (!validateListing(listing)) return
+
         val currentListings = _uiState.value.listings
-        val sellerName = _uiState.value.profile
+        val profile = _uiState.value.profile
+        val sellerName = profile
             .takeIf { it.loggedIn }
             ?.name
             .orEmpty()
             .ifBlank { listing.sellerName }
+        val ownerId = profile
+            .takeIf { it.loggedIn }
+            ?.let(::profileOwnerId)
+            .orEmpty()
+            .ifBlank { listing.ownerId }
+
         val newListings = ListingOperations.add(
             listings = currentListings,
             listing = listing,
+            ownerId = ownerId,
             sellerName = sellerName
         )
         val listingToInsert = newListings.first()
@@ -101,12 +112,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateListing(listing: Listing) {
+        if (_uiState.value.listings.none { it.id == listing.id }) {
+            setDataError("Nie znaleziono ogłoszenia do edycji.")
+            return
+        }
+        if (!validateListing(listing)) return
+
         val newListings = ListingOperations.update(
             listings = _uiState.value.listings,
             listing = listing,
             updatedAt = System.currentTimeMillis()
         )
-        val updatedListing = newListings.firstOrNull { it.id == listing.id } ?: return
+        val updatedListing = newListings.firstOrNull { it.id == listing.id }
+            ?: run {
+                setDataError("Nie udało się przygotować zmian ogłoszenia.")
+                return
+            }
 
         applyListingChange(newListings) {
             listingRepository.upsert(updatedListing)
@@ -114,6 +135,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteListing(id: String) {
+        if (_uiState.value.listings.none { it.id == id }) {
+            setDataError("Nie znaleziono ogłoszenia do usunięcia.")
+            return
+        }
+
         val newListings = ListingOperations.delete(
             listings = _uiState.value.listings,
             id = id
@@ -125,11 +151,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleFavorite(id: String) {
+        if (_uiState.value.listings.none { it.id == id }) {
+            setDataError("Nie znaleziono ogłoszenia.")
+            return
+        }
+
         val newListings = ListingOperations.toggleFavorite(
             listings = _uiState.value.listings,
             id = id
         )
-        val updatedListing = newListings.firstOrNull { it.id == id } ?: return
+        val updatedListing = newListings.firstOrNull { it.id == id }
+            ?: run {
+                setDataError("Nie udało się zmienić stanu ulubionych.")
+                return
+            }
 
         applyListingChange(newListings) {
             listingRepository.upsert(updatedListing)
@@ -137,13 +172,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateListingStatus(id: String, status: ListingStatus) {
+        if (_uiState.value.listings.none { it.id == id }) {
+            setDataError("Nie znaleziono ogłoszenia.")
+            return
+        }
+
         val newListings = ListingOperations.updateStatus(
             listings = _uiState.value.listings,
             id = id,
             status = status,
             updatedAt = System.currentTimeMillis()
         )
-        val updatedListing = newListings.firstOrNull { it.id == id } ?: return
+        val updatedListing = newListings.firstOrNull { it.id == id }
+            ?: run {
+                setDataError("Nie udało się zmienić statusu ogłoszenia.")
+                return
+            }
 
         applyListingChange(newListings) {
             listingRepository.upsert(updatedListing)
@@ -228,9 +272,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun login(name: String, email: String) {
+        val cleanEmail = email.trim().lowercase()
         val profile = UserProfile(
-            name = name,
-            email = email,
+            id = stableId(cleanEmail),
+            name = name.trim(),
+            email = cleanEmail,
             loggedIn = true
         )
         applyProfileChange(profile)
@@ -265,10 +311,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 LocalStore.markMessageInitializationComplete(appContext)
             }
         }.onFailure { error ->
-            _uiState.update {
-                it.copy(dataError = error.message ?: "Nie udało się przenieść danych lokalnych.")
-            }
+            setDataError(error.message ?: "Nie udało się przenieść danych lokalnych.")
         }
+    }
+
+    private fun validateListing(listing: Listing): Boolean {
+        val validation = ListingValidator.validate(listing)
+        if (validation.isValid) return true
+
+        setDataError(
+            validation.errors.values.firstOrNull()
+                ?: "Dane ogłoszenia są nieprawidłowe."
+        )
+        return false
+    }
+
+    private fun profileOwnerId(profile: UserProfile): String = profile.id
+        .ifBlank { profile.email.takeIf(String::isNotBlank)?.let(::stableId).orEmpty() }
+
+    private fun setDataError(message: String) {
+        _uiState.update { it.copy(dataError = message) }
     }
 
     private fun applyListingChange(
