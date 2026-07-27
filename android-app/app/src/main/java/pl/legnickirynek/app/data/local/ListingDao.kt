@@ -10,6 +10,9 @@ interface ListingDao {
     @Query("SELECT * FROM listings ORDER BY createdAt DESC, updatedAt DESC")
     fun observeAll(): Flow<List<ListingEntity>>
 
+    @Query("SELECT * FROM listings ORDER BY createdAt DESC, updatedAt DESC")
+    suspend fun getAll(): List<ListingEntity>
+
     @Query("SELECT * FROM listings WHERE id = :id LIMIT 1")
     fun observeById(id: String): Flow<ListingEntity?>
 
