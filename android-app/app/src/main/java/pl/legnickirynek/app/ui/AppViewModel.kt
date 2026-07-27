@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,9 +15,11 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pl.legnickirynek.app.data.FavoriteRepository
 import pl.legnickirynek.app.data.ListingRepository
 import pl.legnickirynek.app.data.LocalStore
 import pl.legnickirynek.app.data.MessageRepository
+import pl.legnickirynek.app.data.OfflineFavoriteRepository
 import pl.legnickirynek.app.data.OfflineListingRepository
 import pl.legnickirynek.app.data.OfflineMessageRepository
 import pl.legnickirynek.app.data.ProfilePreferencesStore
@@ -39,6 +42,7 @@ data class AppUiState(
     val dataError: String? = null
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext = application.applicationContext
     private val database = AppDatabase.getInstance(appContext)
@@ -49,11 +53,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         database.listingDao()
     )
     private val messageRepository: MessageRepository = OfflineMessageRepository(database)
+    private val favoriteRepository: FavoriteRepository = OfflineFavoriteRepository(
+        database.favoriteDao()
+    )
     private val profileStore = ProfilePreferencesStore(appContext)
 
     private val _uiState = MutableStateFlow(
         AppUiState(
-            listings = initialListings,
+            listings = initialListings.map { it.copy(isFavorite = false) },
             conversations = emptyList(),
             profile = initialProfile
         )
@@ -68,17 +75,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 .flatMapLatest { profile ->
                     val accountId = activeAccountId(profile)
                     val conversations = if (accountId.isBlank()) {
-                        flowOf(emptyList())
+                        flowOf(emptyList<Conversation>())
                     } else {
                         messageRepository.observeConversations(accountId)
+                    }
+                    val favoriteIds = if (accountId.isBlank()) {
+                        flowOf(emptyList<String>())
+                    } else {
+                        favoriteRepository.observeFavoriteListingIds(accountId)
                     }
 
                     combine(
                         listingRepository.observeListings(),
-                        conversations
-                    ) { listings, accountConversations ->
+                        conversations,
+                        favoriteIds
+                    ) { listings, accountConversations, accountFavoriteIds ->
+                        val favoriteSet = accountFavoriteIds.toHashSet()
                         AppUiState(
-                            listings = listings,
+                            listings = listings.map { listing ->
+                                listing.copy(isFavorite = listing.id in favoriteSet)
+                            },
                             conversations = accountConversations,
                             profile = profile
                         )
@@ -106,7 +122,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         profileStore.profile.flatMapLatest { profile ->
             val accountId = activeAccountId(profile)
             if (accountId.isBlank() || conversationId.isBlank()) {
-                flowOf(emptyList())
+                flowOf(emptyList<ChatMessage>())
             } else {
                 messageRepository.observeMessages(accountId, conversationId)
             }
@@ -123,11 +139,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         val newListings = ListingOperations.add(
             listings = _uiState.value.listings,
-            listing = listing,
+            listing = listing.copy(isFavorite = false),
             ownerId = ownerId,
             sellerName = profile.name.ifBlank { listing.sellerName }
         )
-        val listingToInsert = newListings.first()
+        val listingToInsert = newListings.first().copy(isFavorite = false)
 
         applyListingChange(newListings) {
             listingRepository.upsert(listingToInsert)
@@ -149,14 +165,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val securedListing = listing.copy(
             ownerId = currentListing.ownerId,
             sellerName = currentListing.sellerName,
-            createdAt = currentListing.createdAt
+            createdAt = currentListing.createdAt,
+            isFavorite = false
         )
         val newListings = ListingOperations.update(
             listings = _uiState.value.listings,
             listing = securedListing,
             updatedAt = System.currentTimeMillis()
-        )
+        ).map { updated ->
+            if (updated.id == currentListing.id) {
+                updated.copy(isFavorite = currentListing.isFavorite)
+            } else {
+                updated
+            }
+        }
         val updatedListing = newListings.firstOrNull { it.id == listing.id }
+            ?.copy(isFavorite = false)
             ?: run {
                 setDataError("Nie udało się przygotować zmian ogłoszenia.")
                 return
@@ -189,23 +213,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleFavorite(id: String) {
-        if (_uiState.value.listings.none { it.id == id }) {
+        val accountId = activeAccountId(_uiState.value.profile)
+        if (accountId.isBlank()) {
+            setDataError("Zaloguj się, aby zapisywać ulubione ogłoszenia.")
+            return
+        }
+
+        val listing = _uiState.value.listings.firstOrNull { it.id == id }
+        if (listing == null) {
             setDataError("Nie znaleziono ogłoszenia.")
             return
         }
 
-        val newListings = ListingOperations.toggleFavorite(
-            listings = _uiState.value.listings,
-            id = id
-        )
-        val updatedListing = newListings.firstOrNull { it.id == id }
-            ?: run {
-                setDataError("Nie udało się zmienić stanu ulubionych.")
-                return
+        val shouldBeFavorite = !listing.isFavorite
+        val newListings = _uiState.value.listings.map { current ->
+            if (current.id == id) {
+                current.copy(isFavorite = shouldBeFavorite)
+            } else {
+                current
             }
+        }
 
         applyListingChange(newListings) {
-            listingRepository.upsert(updatedListing)
+            favoriteRepository.setFavorite(
+                accountId = accountId,
+                listingId = id,
+                favorite = shouldBeFavorite
+            )
         }
     }
 
@@ -227,6 +261,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             updatedAt = System.currentTimeMillis()
         )
         val updatedListing = newListings.firstOrNull { it.id == id }
+            ?.copy(isFavorite = false)
             ?: run {
                 setDataError("Nie udało się zmienić statusu ogłoszenia.")
                 return
@@ -382,6 +417,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         applyProfileChange(profile) {
             listingRepository.claimLegacyListings(accountId, cleanName)
             messageRepository.claimLegacyConversations(accountId)
+            favoriteRepository.claimLegacyFavorites(accountId)
             profileStore.save(profile)
         }
     }
