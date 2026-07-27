@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
@@ -68,7 +68,8 @@ fun ListingDetailScreen(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleFavorite: () -> Unit,
-    onStatusChange: (ListingStatus) -> Unit
+    onStatusChange: (ListingStatus) -> Unit,
+    onMessageSeller: () -> Unit = {}
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -86,6 +87,14 @@ fun ListingDetailScreen(
                 },
                 actions = {
                     if (listing != null) {
+                        if (!canManage) {
+                            IconButton(onClick = onMessageSeller) {
+                                Icon(
+                                    imageVector = Icons.Default.ChatBubble,
+                                    contentDescription = "Napisz do sprzedającego"
+                                )
+                            }
+                        }
                         IconButton(onClick = onToggleFavorite) {
                             Icon(
                                 imageVector = if (listing.isFavorite) {
@@ -129,6 +138,7 @@ fun ListingDetailScreen(
                 onEdit = onEdit,
                 onRequestDelete = { showDeleteDialog = true },
                 onStatusChange = onStatusChange,
+                onMessageSeller = onMessageSeller,
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -173,6 +183,7 @@ private fun ListingDetails(
     onEdit: () -> Unit,
     onRequestDelete: () -> Unit,
     onStatusChange: (ListingStatus) -> Unit,
+    onMessageSeller: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val formattedPrice = NumberFormat
@@ -263,9 +274,23 @@ private fun ListingDetails(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Skontaktuj się przez wiadomości w aplikacji.",
+                    text = if (canManage) {
+                        "To jest Twoje ogłoszenie."
+                    } else {
+                        "Skontaktuj się bezpiecznie przez wiadomości w aplikacji."
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (!canManage) {
+                    Button(
+                        onClick = onMessageSeller,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.ChatBubble, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Napisz wiadomość")
+                    }
+                }
             }
         }
 
