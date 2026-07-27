@@ -22,7 +22,8 @@ interface ListingSyncStateStore {
 }
 
 class ListingSyncStore(context: Context) : ListingSyncStateStore {
-    private val dataStore = context.applicationContext.listingSyncDataStore
+    internal val appContext: Context = context.applicationContext
+    private val dataStore = appContext.listingSyncDataStore
 
     override suspend fun pendingDeletionIds(): Set<String> =
         dataStore.data.first()[PENDING_DELETION_IDS].orEmpty()
