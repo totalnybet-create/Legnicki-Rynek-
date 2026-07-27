@@ -21,14 +21,26 @@ class LegnicaCalendarEventsRepository(
 
         val today = LocalDate.now(clock)
         val months = listOf(YearMonth.from(today), YearMonth.from(today).plusMonths(1))
-        return months
-            .flatMap { month ->
-                val html = httpClient.get(monthUrl(month))
-                LegnicaCalendarParser.parse(html, month)
+        val results = months.map { month ->
+            runCatching {
+                LegnicaCalendarParser.parse(
+                    httpClient.get(monthUrl(month)),
+                    month
+                )
             }
+        }
+        val events = results.flatMap { it.getOrDefault(emptyList()) }
+        if (events.isEmpty() && results.all { it.isFailure }) {
+            throw results.firstNotNullOf { it.exceptionOrNull() }
+        }
+
+        return events
             .distinctBy(LocalEvent::id)
             .filter { event -> event.localDateOrNull()?.let { !it.isBefore(today) } ?: true }
-            .sortedWith(compareBy<LocalEvent> { it.localDateOrNull() ?: LocalDate.MAX }.thenBy { it.title })
+            .sortedWith(
+                compareBy<LocalEvent> { it.localDateOrNull() ?: LocalDate.MAX }
+                    .thenBy { it.title }
+            )
             .take(limit)
     }
 
@@ -46,7 +58,9 @@ object LegnicaCalendarParser {
         """<a\b[^>]*href\s*=\s*["']([^"']*/kalendarz-wydarzen/[^"']*wydarzenie\.html)["'][^>]*>(.*?)</a>""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
-    private val dateRegex = Regex("(?<!\\d)(\\d{2})\\.(\\d{2})(?:\\.(\\d{4}))?(?:\\s+(\\d{2}:\\d{2}))?")
+    private val dateRegex = Regex(
+        "(?<!\\d)(\\d{2})\\.(\\d{2})(?:\\.(\\d{4}))?(?:\\s+(\\d{2}:\\d{2}))?"
+    )
 
     fun parse(html: String, month: YearMonth): List<LocalEvent> {
         require(html.isNotBlank()) { "Kalendarz wydarzeń jest pusty." }
@@ -87,15 +101,6 @@ object LegnicaCalendarParser {
         }.distinctBy { event -> event.sourceUrl to event.date }
     }
 
-    private fun LocalEvent.localDateOrNull(): LocalDate? {
-        val datePart = date.substringBefore(" • ")
-        val parts = datePart.split('.')
-        if (parts.size != 3) return null
-        return runCatching {
-            LocalDate.of(parts[2].toInt(), parts[1].toInt(), parts[0].toInt())
-        }.getOrNull()
-    }
-
     private fun absoluteUrl(url: String): String = when {
         url.startsWith("https://", ignoreCase = true) -> url
         url.startsWith("http://", ignoreCase = true) -> url.replaceFirst("http://", "https://")
@@ -105,8 +110,20 @@ object LegnicaCalendarParser {
 
     private fun cleanHtml(value: String): String = decodeEntities(
         value
-            .replace(Regex("<script\\b[^>]*>.*?</script>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), " ")
-            .replace(Regex("<style\\b[^>]*>.*?</style>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), " ")
+            .replace(
+                Regex(
+                    "<script\\b[^>]*>.*?</script>",
+                    setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+                ),
+                " "
+            )
+            .replace(
+                Regex(
+                    "<style\\b[^>]*>.*?</style>",
+                    setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+                ),
+                " "
+            )
             .replace(Regex("<[^>]+>"), " ")
     ).replace(Regex("\\s+"), " ").trim()
 
