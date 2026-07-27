@@ -2,6 +2,9 @@ name: Android build
 
 on:
   push:
+    branches:
+      - main
+      - android-architecture-v2
     paths:
       - "android-app/**"
       - ".github/workflows/android-build.yml"
@@ -11,9 +14,14 @@ on:
       - ".github/workflows/android-build.yml"
   workflow_dispatch:
 
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Pobierz repozytorium
@@ -25,24 +33,27 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Skonfiguruj Gradle
+      - name: Skonfiguruj Gradle 9.5
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: "9.5.0"
 
-      - name: Zbuduj testowe APK
+      - name: Testy, lint i testowe APK
         shell: bash
         run: |
           set -o pipefail
-          gradle -p android-app assembleDebug --stacktrace 2>&1 | tee android-build.log
+          gradle -p android-app clean testDebugUnitTest lintDebug assembleDebug --stacktrace 2>&1 | tee android-build.log
 
-      - name: Zapisz log kompilacji
+      - name: Zapisz raporty, log i schematy Room
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-build-log
-          path: android-build.log
-          if-no-files-found: error
+          name: android-quality-reports
+          path: |
+            android-build.log
+            android-app/app/build/reports/**
+            android-app/app/schemas/**
+          if-no-files-found: warn
 
       - name: Zapisz APK jako artefakt
         if: success()

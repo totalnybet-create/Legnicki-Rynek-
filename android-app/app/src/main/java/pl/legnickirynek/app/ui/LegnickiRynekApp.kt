@@ -1,34 +1,38 @@
 package pl.legnickirynek.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import pl.legnickirynek.app.data.LocalStore
-import pl.legnickirynek.app.data.SampleData
-import pl.legnickirynek.app.model.Listing
-import pl.legnickirynek.app.model.UserProfile
+import pl.legnickirynek.app.presentation.AppViewModel
 import pl.legnickirynek.app.ui.screens.AddListingScreen
 import pl.legnickirynek.app.ui.screens.CategoriesScreen
 import pl.legnickirynek.app.ui.screens.HomeScreen
 import pl.legnickirynek.app.ui.screens.MessagesScreen
 import pl.legnickirynek.app.ui.screens.ProfileScreen
+import pl.legnickirynek.app.ui.theme.LegnicaBackground
 import pl.legnickirynek.app.ui.theme.LegnicaCoral
 import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
@@ -47,30 +51,19 @@ private val destinations = listOf(
 )
 
 @Composable
-fun LegnickiRynekApp() {
-    val context = LocalContext.current.applicationContext
+fun LegnickiRynekApp(
+    viewModel: AppViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
-    val listings = remember(context) {
-        val savedListings = LocalStore.loadListings(context)
-        mutableStateListOf<Listing>().apply {
-            addAll(savedListings.ifEmpty { SampleData.listings })
-        }
-    }
-    var profile by remember(context) {
-        mutableStateOf(LocalStore.loadProfile(context))
-    }
+    val snackbarHostState = remember { SnackbarHostState() }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: "home"
 
-    fun persistListings() {
-        LocalStore.saveListings(context, listings)
-    }
-
-    fun toggleFavorite(id: String) {
-        val index = listings.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            listings[index] = listings[index].copy(isFavorite = !listings[index].isFavorite)
-            persistListings()
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearActionError()
         }
     }
 
@@ -85,6 +78,7 @@ fun LegnickiRynekApp() {
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar(containerColor = Color.White) {
                 destinations.forEach { destination ->
@@ -106,51 +100,56 @@ fun LegnickiRynekApp() {
             }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = "home",
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable("home") {
-                HomeScreen(
-                    listings = listings,
-                    onOpenCategories = { navigate("categories") },
-                    onOpenProfile = { navigate("profile") },
-                    onToggleFavorite = ::toggleFavorite
-                )
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(LegnicaBackground),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = LegnicaCoral)
             }
-            composable("categories") {
-                CategoriesScreen(
-                    listings = listings,
-                    onToggleFavorite = ::toggleFavorite
-                )
-            }
-            composable("add") {
-                AddListingScreen(
-                    onListingCreated = { listing ->
-                        listings.add(0, listing)
-                        persistListings()
-                        navigate("home")
-                    }
-                )
-            }
-            composable("messages") {
-                MessagesScreen()
-            }
-            composable("profile") {
-                ProfileScreen(
-                    profile = profile,
-                    listingCount = listings.count { it.id.startsWith("listing-") },
-                    favoriteCount = listings.count { it.isFavorite },
-                    onLogin = { name, email ->
-                        profile = UserProfile(name = name, email = email, loggedIn = true)
-                        LocalStore.saveProfile(context, profile)
-                    },
-                    onLogout = {
-                        profile = UserProfile()
-                        LocalStore.saveProfile(context, profile)
-                    }
-                )
+        } else {
+            NavHost(
+                navController = navController,
+                startDestination = "home",
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                composable("home") {
+                    HomeScreen(
+                        listings = uiState.listings,
+                        onOpenCategories = { navigate("categories") },
+                        onOpenProfile = { navigate("profile") },
+                        onToggleFavorite = viewModel::toggleFavorite
+                    )
+                }
+                composable("categories") {
+                    CategoriesScreen(
+                        listings = uiState.listings,
+                        onToggleFavorite = viewModel::toggleFavorite
+                    )
+                }
+                composable("add") {
+                    AddListingScreen(
+                        onListingCreated = { listing ->
+                            viewModel.addListing(listing)
+                            navigate("home")
+                        }
+                    )
+                }
+                composable("messages") {
+                    MessagesScreen()
+                }
+                composable("profile") {
+                    ProfileScreen(
+                        profile = uiState.profile,
+                        listingCount = uiState.listings.count { it.id.startsWith("listing-") },
+                        favoriteCount = uiState.listings.count { it.isFavorite },
+                        onLogin = viewModel::login,
+                        onLogout = viewModel::logout
+                    )
+                }
             }
         }
     }
