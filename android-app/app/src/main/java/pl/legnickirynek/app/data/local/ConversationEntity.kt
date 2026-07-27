@@ -1,5 +1,6 @@
 package pl.legnickirynek.app.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -16,7 +17,7 @@ import pl.legnickirynek.app.model.Conversation
 )
 data class ConversationEntity(
     @PrimaryKey val id: String,
-    val accountId: String,
+    @ColumnInfo(defaultValue = "''") val accountId: String,
     val person: String,
     val listingId: String?,
     val listingTitle: String,
