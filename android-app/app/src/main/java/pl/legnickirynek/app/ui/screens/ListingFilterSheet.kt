@@ -38,6 +38,8 @@ import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.domain.ListingSearchCriteria
 import pl.legnickirynek.app.domain.ListingSort
 
+private val distanceOptions = listOf(2, 5, 10, 20)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListingFilterSheet(
@@ -53,6 +55,9 @@ fun ListingFilterSheet(
         mutableStateOf(criteria.maximumPrice?.toString().orEmpty())
     }
     var location by remember(criteria) { mutableStateOf(criteria.location) }
+    var maximumDistance by remember(criteria) {
+        mutableStateOf(criteria.maximumDistanceFromCenterKm)
+    }
     var includeUnavailable by remember(criteria) {
         mutableStateOf(criteria.includeUnavailable)
     }
@@ -139,6 +144,29 @@ fun ListingFilterSheet(
                 singleLine = true
             )
 
+            Text("Odległość od centrum Legnicy", fontWeight = FontWeight.Bold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = maximumDistance == null,
+                        onClick = { maximumDistance = null },
+                        label = { Text("Dowolna") }
+                    )
+                }
+                items(distanceOptions, key = { it }) { distance ->
+                    FilterChip(
+                        selected = maximumDistance == distance,
+                        onClick = { maximumDistance = distance },
+                        label = { Text("do $distance km") }
+                    )
+                }
+            }
+            Text(
+                text = "Oferty bez ustalonych współrzędnych są ukrywane po wybraniu promienia.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+
             Text("Sortowanie", fontWeight = FontWeight.Bold)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(ListingSort.entries, key = { it.name }) { option ->
@@ -153,6 +181,7 @@ fun ListingFilterSheet(
                                     ListingSort.PRICE_ASCENDING -> "Cena rosnąco"
                                     ListingSort.PRICE_DESCENDING -> "Cena malejąco"
                                     ListingSort.TITLE_ASCENDING -> "Nazwa A–Z"
+                                    ListingSort.DISTANCE_FROM_CENTER -> "Najbliżej centrum"
                                 }
                             )
                         }
@@ -188,6 +217,7 @@ fun ListingFilterSheet(
                             minimumPrice = minimumValue,
                             maximumPrice = maximumValue,
                             location = location.trim(),
+                            maximumDistanceFromCenterKm = maximumDistance,
                             includeUnavailable = includeUnavailable,
                             sort = sort
                         )
