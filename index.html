@@ -2,8 +2,9 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Legnicki Rynek — lokalne ogłoszenia, wydarzenia i aktualności z Legnicy.">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#062a55">
+  <meta name="description" content="Legnicki Rynek — lokalne ogłoszenia, wydarzenia i usługi z Legnicy i okolic.">
   <title>Legnicki Rynek</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,121 +12,106 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="site-header">
-    <div class="container header-inner">
-      <a class="brand" href="#top" aria-label="Legnicki Rynek — strona główna">
-        <span class="brand-mark">LR</span>
-        <span>Legnicki Rynek</span>
-      </a>
-      <div class="header-actions">
-        <button class="button button-ghost" data-open-login>Zaloguj się</button>
-        <button class="button button-primary" data-open-ad>Dodaj ogłoszenie</button>
-      </div>
-    </div>
-  </header>
-
-  <main id="top">
-    <section class="hero">
-      <div class="container hero-grid">
-        <div>
-          <p class="eyebrow">Lokalnie. Szybko. Bez zbędnego szukania.</p>
-          <h1>Wszystko, czego szukasz w Legnicy — w jednym miejscu.</h1>
-          <p class="hero-copy">Ogłoszenia, usługi, praca, nieruchomości, motoryzacja oraz najważniejsze wydarzenia z miasta.</p>
-          <form class="search-bar" id="search-form">
-            <label class="sr-only" for="search">Szukaj ogłoszeń</label>
-            <input id="search" name="search" type="search" placeholder="Czego szukasz? np. rower, mieszkanie, praca">
-            <button class="button button-primary" type="submit">Szukaj</button>
-          </form>
+  <div class="app-shell">
+    <header class="hero" id="top">
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <div class="topbar">
+          <a class="brand" href="#top"><span class="brand-mark">LR</span><span>Legnicki Rynek</span></a>
+          <button class="profile-chip" id="profile-button" type="button" aria-label="Konto użytkownika">Zaloguj</button>
         </div>
-        <aside class="hero-card" aria-label="Statystyki serwisu">
-          <strong>Legnica w liczbach</strong>
-          <div class="stats">
-            <div><span id="stat-ads">128</span><small>ogłoszeń</small></div>
-            <div><span>12</span><small>kategorii</small></div>
-            <div><span>24/7</span><small>dostęp</small></div>
-          </div>
-        </aside>
-      </div>
-    </section>
 
-    <section class="section container" aria-labelledby="categories-title">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Kategorie</p>
-          <h2 id="categories-title">Znajdź szybciej</h2>
+        <div class="hero-widgets">
+          <div><strong id="current-date">—</strong><span id="current-day">—</span></div>
+          <div><strong id="current-time">—</strong><span>czas lokalny</span></div>
+          <div><strong>Legnica</strong><span>lokalnie i blisko</span></div>
         </div>
-      </div>
-      <div class="category-grid" id="category-grid"></div>
-    </section>
 
-    <section class="section section-muted" aria-labelledby="news-title">
-      <div class="container">
+        <form class="search" id="search-form">
+          <span aria-hidden="true">⌕</span>
+          <label class="sr-only" for="search-input">Szukaj</label>
+          <input id="search-input" type="search" placeholder="Czego szukasz? Legnica i okolice" autocomplete="off">
+          <button type="button" id="clear-search" aria-label="Wyczyść wyszukiwanie">×</button>
+        </form>
+      </div>
+    </header>
+
+    <main>
+      <section class="category-section" aria-labelledby="category-title">
+        <h1 class="sr-only" id="category-title">Kategorie ogłoszeń</h1>
+        <div class="category-grid" id="category-grid"></div>
+      </section>
+
+      <section class="content-section" aria-labelledby="events-title">
         <div class="section-heading">
-          <div>
-            <p class="eyebrow">Na czasie</p>
-            <h2 id="news-title">Wydarzenia i aktualności</h2>
-          </div>
-          <div class="slider-controls" aria-label="Sterowanie listą wydarzeń">
-            <button class="icon-button" id="news-prev" aria-label="Poprzednie wydarzenia">←</button>
-            <button class="icon-button" id="news-next" aria-label="Następne wydarzenia">→</button>
-          </div>
+          <h2 id="events-title">Wydarzenia i Aktualności</h2>
+          <button class="text-button" data-view="events">Zobacz więcej →</button>
         </div>
-        <div class="news-track" id="news-track"></div>
-      </div>
-    </section>
+        <div class="horizontal-list" id="events-list"></div>
+      </section>
 
-    <section class="section container" aria-labelledby="ads-title">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Najnowsze</p>
-          <h2 id="ads-title">Ogłoszenia</h2>
+      <section class="content-section" aria-labelledby="ads-title">
+        <div class="section-heading">
+          <h2 id="ads-title">Polecane ogłoszenia</h2>
+          <button class="text-button" data-view="all">Zobacz więcej →</button>
         </div>
-        <select id="category-filter" aria-label="Filtruj po kategorii">
-          <option value="all">Wszystkie kategorie</option>
-        </select>
-      </div>
-      <div class="ad-grid" id="ad-grid"></div>
-      <p class="empty-state" id="empty-state" hidden>Brak wyników dla wybranego filtra.</p>
-    </section>
-  </main>
+        <div class="filter-row" id="filter-row"></div>
+        <div class="listing-grid" id="listing-grid"></div>
+        <p class="empty-state" id="empty-state" hidden>Nie znaleziono pasujących ogłoszeń.</p>
+      </section>
+    </main>
 
-  <footer class="site-footer">
-    <div class="container footer-inner">
-      <div>
-        <strong>Legnicki Rynek</strong>
-        <p>Lokalna platforma ogłoszeń i informacji.</p>
-      </div>
-      <small>© 2026 Legnicki Rynek</small>
-    </div>
-  </footer>
-
-  <dialog id="login-dialog">
-    <form method="dialog" class="dialog-card" id="login-form">
-      <button class="dialog-close" value="cancel" aria-label="Zamknij">×</button>
-      <p class="eyebrow">Konto</p>
-      <h2>Zaloguj się</h2>
-      <label>E-mail<input type="email" name="email" required placeholder="ty@example.com"></label>
-      <label>Hasło<input type="password" name="password" required minlength="6"></label>
-      <button class="button button-primary button-full" value="default">Zaloguj się</button>
-      <p class="form-message" id="login-message"></p>
-    </form>
-  </dialog>
+    <nav class="bottom-nav" aria-label="Główna nawigacja">
+      <button class="nav-item active" data-nav="home"><span>⌂</span>Home</button>
+      <button class="nav-item" data-nav="categories"><span>▦</span>Kategorie</button>
+      <button class="nav-add" id="open-ad" aria-label="Dodaj ogłoszenie"><span>＋</span></button>
+      <button class="nav-item" data-nav="messages"><span>▢</span>Wiadomości</button>
+      <button class="nav-item" data-nav="profile"><span>♙</span>Profil</button>
+    </nav>
+  </div>
 
   <dialog id="ad-dialog">
-    <form method="dialog" class="dialog-card" id="ad-form">
-      <button class="dialog-close" value="cancel" aria-label="Zamknij">×</button>
+    <form class="dialog-card" id="ad-form">
+      <button type="button" class="dialog-close" data-close="ad-dialog">×</button>
       <p class="eyebrow">Nowe ogłoszenie</p>
       <h2>Dodaj ogłoszenie</h2>
-      <label>Tytuł<input type="text" name="title" required minlength="4" maxlength="80"></label>
+      <label>Tytuł<input name="title" required minlength="4" maxlength="80"></label>
       <label>Kategoria<select name="category" id="ad-category" required></select></label>
-      <label>Cena<input type="number" name="price" min="0" step="1" required></label>
-      <label>Lokalizacja<input type="text" name="location" value="Legnica" required></label>
-      <label>Opis<textarea name="description" rows="4" required minlength="10"></textarea></label>
-      <button class="button button-primary button-full" value="default">Opublikuj</button>
+      <label>Cena w zł<input name="price" type="number" min="0" step="1" required></label>
+      <label>Lokalizacja<input name="location" value="Legnica" required></label>
+      <label>Adres zdjęcia<input name="image" type="url" placeholder="https://..."></label>
+      <label>Opis<textarea name="description" rows="4" minlength="10" required></textarea></label>
+      <button class="primary-button" type="submit">Opublikuj ogłoszenie</button>
       <p class="form-message" id="ad-message"></p>
     </form>
   </dialog>
 
+  <dialog id="login-dialog">
+    <form class="dialog-card" id="login-form">
+      <button type="button" class="dialog-close" data-close="login-dialog">×</button>
+      <p class="eyebrow">Konto</p>
+      <h2>Zaloguj się</h2>
+      <label>Imię<input name="name" required minlength="2" placeholder="Jan"></label>
+      <label>E-mail<input name="email" type="email" required placeholder="jan@example.com"></label>
+      <button class="primary-button" type="submit">Zaloguj</button>
+      <p class="form-message">Wersja demonstracyjna zapisuje konto wyłącznie w tej przeglądarce.</p>
+    </form>
+  </dialog>
+
+  <dialog id="details-dialog">
+    <article class="dialog-card details-card">
+      <button type="button" class="dialog-close" data-close="details-dialog">×</button>
+      <img id="details-image" alt="">
+      <p class="eyebrow" id="details-category"></p>
+      <h2 id="details-title"></h2>
+      <strong class="details-price" id="details-price"></strong>
+      <p id="details-description"></p>
+      <p class="details-location" id="details-location"></p>
+      <button class="primary-button" type="button" id="contact-seller">Napisz do sprzedającego</button>
+    </article>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
 </html>
