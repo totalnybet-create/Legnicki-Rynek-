@@ -26,7 +26,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import pl.legnickirynek.app.ui.screens.AddListingScreen
 import pl.legnickirynek.app.ui.screens.CategoriesScreen
+import pl.legnickirynek.app.ui.screens.EditListingScreen
 import pl.legnickirynek.app.ui.screens.HomeScreen
+import pl.legnickirynek.app.ui.screens.ListingDetailScreen
 import pl.legnickirynek.app.ui.screens.MessagesScreen
 import pl.legnickirynek.app.ui.screens.ProfileScreen
 
@@ -50,8 +52,9 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: "home"
+    val showBottomBar = destinations.any { it.route == currentRoute }
 
-    fun navigate(route: String) {
+    fun navigateTopLevel(route: String) {
         navController.navigate(route) {
             launchSingleTop = true
             restoreState = true
@@ -61,30 +64,38 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
         }
     }
 
+    fun openListing(id: String) {
+        navController.navigate("listing/$id") {
+            launchSingleTop = true
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                destinations.forEach { destination ->
-                    val selected = currentRoute == destination.route
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { navigate(destination.route) },
-                        icon = {
-                            Icon(
-                                imageVector = destination.icon,
-                                contentDescription = destination.label
+            if (showBottomBar) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    destinations.forEach { destination ->
+                        val selected = currentRoute == destination.route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = { navigateTopLevel(destination.route) },
+                            icon = {
+                                Icon(
+                                    imageVector = destination.icon,
+                                    contentDescription = destination.label
+                                )
+                            },
+                            label = { Text(destination.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        },
-                        label = { Text(destination.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    )
+                    }
                 }
             }
         }
@@ -97,14 +108,16 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
             composable("home") {
                 HomeScreen(
                     listings = uiState.listings,
-                    onOpenCategories = { navigate("categories") },
-                    onOpenProfile = { navigate("profile") },
+                    onOpenCategories = { navigateTopLevel("categories") },
+                    onOpenProfile = { navigateTopLevel("profile") },
+                    onOpenListing = ::openListing,
                     onToggleFavorite = appViewModel::toggleFavorite
                 )
             }
             composable("categories") {
                 CategoriesScreen(
                     listings = uiState.listings,
+                    onOpenListing = ::openListing,
                     onToggleFavorite = appViewModel::toggleFavorite
                 )
             }
@@ -112,7 +125,7 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                 AddListingScreen(
                     onListingCreated = { listing ->
                         appViewModel.addListing(listing)
-                        navigate("home")
+                        openListing(listing.id)
                     }
                 )
             }
@@ -129,6 +142,54 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                     onLogin = appViewModel::login,
                     onLogout = appViewModel::logout
                 )
+            }
+            composable("listing/{listingId}") { entry ->
+                val listingId = entry.arguments?.getString("listingId").orEmpty()
+                val listing = uiState.listings.firstOrNull { it.id == listingId }
+                val canManage = listing != null && (
+                    listing.id.startsWith("listing-") ||
+                        uiState.profile.loggedIn && listing.sellerName == uiState.profile.name
+                    )
+
+                ListingDetailScreen(
+                    listing = listing,
+                    canManage = canManage,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate("edit/$listingId") },
+                    onDelete = {
+                        appViewModel.deleteListing(listingId)
+                        navController.popBackStack("home", inclusive = false)
+                    },
+                    onToggleFavorite = { appViewModel.toggleFavorite(listingId) },
+                    onStatusChange = { status ->
+                        appViewModel.updateListingStatus(listingId, status)
+                    }
+                )
+            }
+            composable("edit/{listingId}") { entry ->
+                val listingId = entry.arguments?.getString("listingId").orEmpty()
+                val listing = uiState.listings.firstOrNull { it.id == listingId }
+
+                if (listing == null) {
+                    ListingDetailScreen(
+                        listing = null,
+                        canManage = false,
+                        onBack = { navController.popBackStack() },
+                        onEdit = {},
+                        onDelete = {},
+                        onToggleFavorite = {},
+                        onStatusChange = {}
+                    )
+                } else {
+                    EditListingScreen(
+                        listing = listing,
+                        onListingUpdated = { updatedListing ->
+                            appViewModel.updateListing(updatedListing)
+                            navController.popBackStack()
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }
