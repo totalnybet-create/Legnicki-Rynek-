@@ -70,6 +70,15 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
         }
     }
 
+    fun openCreatedListing(id: String) {
+        navController.navigate("listing/$id") {
+            launchSingleTop = true
+            popUpTo("add") {
+                inclusive = true
+            }
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -125,7 +134,7 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                 AddListingScreen(
                     onListingCreated = { listing ->
                         appViewModel.addListing(listing)
-                        openListing(listing.id)
+                        openCreatedListing(listing.id)
                     }
                 )
             }
