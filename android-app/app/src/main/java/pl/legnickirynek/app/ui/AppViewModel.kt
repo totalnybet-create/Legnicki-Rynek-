@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import pl.legnickirynek.app.data.LocalStore
 import pl.legnickirynek.app.data.SampleData
+import pl.legnickirynek.app.domain.ListingOperations
 import pl.legnickirynek.app.model.Listing
 import pl.legnickirynek.app.model.ListingStatus
 import pl.legnickirynek.app.model.UserProfile
@@ -31,60 +32,42 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addListing(listing: Listing) {
         val sellerName = _uiState.value.profile
-            .takeIf(UserProfile::loggedIn)
+            .takeIf { it.loggedIn }
             ?.name
             .orEmpty()
             .ifBlank { listing.sellerName }
 
         updateListings { current ->
-            listOf(listing.copy(sellerName = sellerName)) + current
+            ListingOperations.add(current, listing, sellerName)
         }
     }
 
     fun updateListing(listing: Listing) {
         updateListings { current ->
-            current.map { existing ->
-                if (existing.id == listing.id) {
-                    listing.copy(
-                        createdAt = existing.createdAt,
-                        updatedAt = System.currentTimeMillis(),
-                        isFavorite = existing.isFavorite
-                    )
-                } else {
-                    existing
-                }
-            }
+            ListingOperations.update(
+                listings = current,
+                listing = listing,
+                updatedAt = System.currentTimeMillis()
+            )
         }
     }
 
     fun deleteListing(id: String) {
-        updateListings { current -> current.filterNot { it.id == id } }
+        updateListings { current -> ListingOperations.delete(current, id) }
     }
 
     fun toggleFavorite(id: String) {
-        updateListings { current ->
-            current.map { listing ->
-                if (listing.id == id) {
-                    listing.copy(isFavorite = !listing.isFavorite)
-                } else {
-                    listing
-                }
-            }
-        }
+        updateListings { current -> ListingOperations.toggleFavorite(current, id) }
     }
 
     fun updateListingStatus(id: String, status: ListingStatus) {
         updateListings { current ->
-            current.map { listing ->
-                if (listing.id == id) {
-                    listing.copy(
-                        status = status,
-                        updatedAt = System.currentTimeMillis()
-                    )
-                } else {
-                    listing
-                }
-            }
+            ListingOperations.updateStatus(
+                listings = current,
+                id = id,
+                status = status,
+                updatedAt = System.currentTimeMillis()
+            )
         }
     }
 
