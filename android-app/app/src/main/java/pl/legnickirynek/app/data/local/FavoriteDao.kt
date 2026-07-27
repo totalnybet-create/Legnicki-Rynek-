@@ -2,6 +2,7 @@ package pl.legnickirynek.app.data.local
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -23,8 +24,18 @@ interface FavoriteDao {
     suspend fun delete(accountId: String, listingId: String)
 
     @Query(
-        "UPDATE favorites SET accountId = :accountId " +
+        "INSERT OR IGNORE INTO favorites(accountId, listingId, createdAt) " +
+            "SELECT :accountId, listingId, createdAt FROM favorites " +
             "WHERE accountId = 'legacy-local'"
     )
-    suspend fun claimLegacyFavorites(accountId: String)
+    suspend fun copyLegacyFavorites(accountId: String)
+
+    @Query("DELETE FROM favorites WHERE accountId = 'legacy-local'")
+    suspend fun deleteLegacyFavorites()
+
+    @Transaction
+    suspend fun claimLegacyFavorites(accountId: String) {
+        copyLegacyFavorites(accountId)
+        deleteLegacyFavorites()
+    }
 }
