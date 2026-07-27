@@ -53,7 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import pl.legnickirynek.app.data.SampleData
-import pl.legnickirynek.app.domain.ListingValidationError
 import pl.legnickirynek.app.domain.ListingValidator
 import pl.legnickirynek.app.model.Listing
 import pl.legnickirynek.app.model.ListingStatus
@@ -137,9 +136,7 @@ private fun ListingFormScreen(
                     .background(MaterialTheme.colorScheme.secondary)
                     .padding(20.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -185,9 +182,7 @@ private fun ListingFormScreen(
                 FilledTonalButton(
                     onClick = {
                         photoPicker.launch(
-                            PickVisualMediaRequest(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly
-                            )
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     },
                     enabled = imageUris.size < 8
@@ -219,9 +214,7 @@ private fun ListingFormScreen(
                                     )
                                 }
                                 IconButton(
-                                    onClick = {
-                                        imageUris = imageUris.filterNot { it == uri }
-                                    },
+                                    onClick = { imageUris = imageUris.filterNot { it == uri } },
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .background(
@@ -297,12 +290,12 @@ private fun ListingFormScreen(
                 OutlinedTextField(
                     value = description,
                     onValueChange = {
-                        description = it.take(2000)
+                        description = it.take(5000)
                         message = ""
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Opis") },
-                    supportingText = { Text("${description.length}/2000") },
+                    supportingText = { Text("${description.length}/5000") },
                     minLines = 5,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                     shape = RoundedCornerShape(16.dp)
@@ -310,60 +303,33 @@ private fun ListingFormScreen(
 
                 Button(
                     onClick = {
-                        when (
-                            ListingValidator.validate(
-                                title = title,
-                                price = price,
-                                location = location,
-                                description = description
-                            )
-                        ) {
-                            ListingValidationError.TITLE_TOO_SHORT -> {
-                                message = "Tytuł musi mieć co najmniej 4 znaki."
-                                messageIsError = true
+                        val now = System.currentTimeMillis()
+                        val draft = Listing(
+                            id = initialListing?.id ?: "listing-$now",
+                            title = title.trim(),
+                            price = price.toIntOrNull() ?: -1,
+                            location = location.trim(),
+                            categoryId = categoryId,
+                            description = description.trim(),
+                            imageUris = imageUris,
+                            sellerName = initialListing?.sellerName ?: "Użytkownik",
+                            createdAt = initialListing?.createdAt ?: now,
+                            updatedAt = now,
+                            status = initialListing?.status ?: ListingStatus.ACTIVE,
+                            isFavorite = initialListing?.isFavorite ?: false
+                        )
+                        val validation = ListingValidator.validate(draft)
+                        if (!validation.isValid) {
+                            message = validation.errors.values.first()
+                            messageIsError = true
+                        } else {
+                            onSave(draft)
+                            message = if (initialListing == null) {
+                                "Ogłoszenie zostało opublikowane."
+                            } else {
+                                "Zmiany zostały zapisane."
                             }
-
-                            ListingValidationError.PRICE_INVALID -> {
-                                message = "Podaj prawidłową cenę."
-                                messageIsError = true
-                            }
-
-                            ListingValidationError.LOCATION_REQUIRED -> {
-                                message = "Podaj lokalizację."
-                                messageIsError = true
-                            }
-
-                            ListingValidationError.DESCRIPTION_TOO_SHORT -> {
-                                message = "Opis musi mieć co najmniej 10 znaków."
-                                messageIsError = true
-                            }
-
-                            null -> {
-                                val now = System.currentTimeMillis()
-                                val numericPrice = requireNotNull(price.toIntOrNull())
-                                onSave(
-                                    Listing(
-                                        id = initialListing?.id ?: "listing-$now",
-                                        title = title.trim(),
-                                        price = numericPrice,
-                                        location = location.trim(),
-                                        categoryId = categoryId,
-                                        description = description.trim(),
-                                        imageUris = imageUris,
-                                        sellerName = initialListing?.sellerName ?: "Użytkownik",
-                                        createdAt = initialListing?.createdAt ?: now,
-                                        updatedAt = now,
-                                        status = initialListing?.status ?: ListingStatus.ACTIVE,
-                                        isFavorite = initialListing?.isFavorite ?: false
-                                    )
-                                )
-                                message = if (initialListing == null) {
-                                    "Ogłoszenie zostało opublikowane."
-                                } else {
-                                    "Zmiany zostały zapisane."
-                                }
-                                messageIsError = false
-                            }
+                            messageIsError = false
                         }
                     },
                     modifier = Modifier
