@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import pl.legnickirynek.app.model.Listing
+import pl.legnickirynek.app.model.ListingStatus
 import pl.legnickirynek.app.model.UserProfile
 
 object LocalStore {
@@ -22,6 +23,15 @@ object LocalStore {
             buildList {
                 for (index in 0 until array.length()) {
                     val item = array.getJSONObject(index)
+                    val createdAt = item.optLong("createdAt", 0L)
+                        .takeIf { it > 0L }
+                        ?: System.currentTimeMillis()
+                    val status = runCatching {
+                        ListingStatus.valueOf(
+                            item.optString("status", ListingStatus.ACTIVE.name)
+                        )
+                    }.getOrDefault(ListingStatus.ACTIVE)
+
                     add(
                         Listing(
                             id = item.getString("id"),
@@ -30,6 +40,11 @@ object LocalStore {
                             location = item.getString("location"),
                             categoryId = item.getString("categoryId"),
                             description = item.getString("description"),
+                            imageUris = item.optJSONArray("imageUris").toStringList(),
+                            sellerName = item.optString("sellerName", "Użytkownik"),
+                            createdAt = createdAt,
+                            updatedAt = item.optLong("updatedAt", createdAt),
+                            status = status,
                             isFavorite = item.optBoolean("isFavorite", false)
                         )
                     )
@@ -49,6 +64,11 @@ object LocalStore {
                     .put("location", listing.location)
                     .put("categoryId", listing.categoryId)
                     .put("description", listing.description)
+                    .put("imageUris", JSONArray(listing.imageUris))
+                    .put("sellerName", listing.sellerName)
+                    .put("createdAt", listing.createdAt)
+                    .put("updatedAt", listing.updatedAt)
+                    .put("status", listing.status.name)
                     .put("isFavorite", listing.isFavorite)
             )
         }
@@ -82,5 +102,17 @@ object LocalStore {
             .edit()
             .putString(PROFILE_KEY, item.toString())
             .apply()
+    }
+
+    private fun JSONArray?.toStringList(): List<String> {
+        if (this == null) return emptyList()
+
+        return buildList {
+            for (index in 0 until length()) {
+                optString(index)
+                    .takeIf(String::isNotBlank)
+                    ?.let(::add)
+            }
+        }
     }
 }
