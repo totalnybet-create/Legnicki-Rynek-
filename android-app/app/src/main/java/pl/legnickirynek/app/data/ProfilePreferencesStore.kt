@@ -12,6 +12,7 @@ import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import pl.legnickirynek.app.domain.UserIdentity
 import pl.legnickirynek.app.model.UserProfile
 
 private val Context.profileDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -30,15 +31,22 @@ class ProfilePreferencesStore(context: Context) {
             }
         }
         .map { preferences ->
+            val email = preferences[EMAIL].orEmpty()
             UserProfile(
+                id = preferences[USER_ID]
+                    .orEmpty()
+                    .ifBlank { UserIdentity.fromEmail(email) },
                 name = preferences[NAME].orEmpty(),
-                email = preferences[EMAIL].orEmpty(),
+                email = email,
                 loggedIn = preferences[LOGGED_IN] ?: false
             )
         }
 
     suspend fun save(profile: UserProfile) {
         dataStore.edit { preferences ->
+            preferences[USER_ID] = profile.id.ifBlank {
+                UserIdentity.fromEmail(profile.email)
+            }
             preferences[NAME] = profile.name
             preferences[EMAIL] = profile.email
             preferences[LOGGED_IN] = profile.loggedIn
@@ -49,6 +57,9 @@ class ProfilePreferencesStore(context: Context) {
         dataStore.edit { preferences ->
             if (preferences[MIGRATION_COMPLETE] == true) return@edit
 
+            preferences[USER_ID] = profile.id.ifBlank {
+                UserIdentity.fromEmail(profile.email)
+            }
             preferences[NAME] = profile.name
             preferences[EMAIL] = profile.email
             preferences[LOGGED_IN] = profile.loggedIn
@@ -57,6 +68,7 @@ class ProfilePreferencesStore(context: Context) {
     }
 
     private companion object {
+        val USER_ID = stringPreferencesKey("profile_user_id")
         val NAME = stringPreferencesKey("profile_name")
         val EMAIL = stringPreferencesKey("profile_email")
         val LOGGED_IN = booleanPreferencesKey("profile_logged_in")
