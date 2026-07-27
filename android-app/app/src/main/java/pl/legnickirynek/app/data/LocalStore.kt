@@ -43,11 +43,14 @@ object LocalStore {
                             categoryId = item.getString("categoryId"),
                             description = item.getString("description"),
                             imageUris = item.optJSONArray("imageUris").toStringList(),
+                            ownerId = item.optString("ownerId"),
                             sellerName = item.optString("sellerName", "Użytkownik"),
                             createdAt = createdAt,
                             updatedAt = item.optLong("updatedAt", createdAt),
                             status = status,
-                            isFavorite = item.optBoolean("isFavorite", false)
+                            isFavorite = item.optBoolean("isFavorite", false),
+                            latitude = item.optNullableDouble("latitude"),
+                            longitude = item.optNullableDouble("longitude")
                         )
                     )
                 }
@@ -61,6 +64,7 @@ object LocalStore {
         return runCatching {
             val item = JSONObject(raw)
             UserProfile(
+                id = item.optString("id"),
                 name = item.optString("name"),
                 email = item.optString("email"),
                 loggedIn = item.optBoolean("loggedIn", false)
@@ -98,5 +102,11 @@ object LocalStore {
                     ?.let(::add)
             }
         }
+    }
+
+    private fun JSONObject.optNullableDouble(key: String): Double? {
+        if (!has(key) || isNull(key)) return null
+        return optDouble(key, Double.NaN)
+            .takeUnless(Double::isNaN)
     }
 }
