@@ -1,0 +1,75 @@
+package pl.legnickirynek.app.data
+
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import pl.legnickirynek.app.data.local.ListingDao
+import pl.legnickirynek.app.data.local.toEntity
+import pl.legnickirynek.app.data.local.toModel
+import pl.legnickirynek.app.domain.ListingValidator
+import pl.legnickirynek.app.model.Listing
+
+data class ListingSyncReport(
+    val enabled: Boolean,
+    val pulled: Int = 0,
+    val pushed: Int = 0,
+    val deletedRemotely: Int = 0,
+    val errors: List<String> = emptyList()
+) {
+    val successful: Boolean
+        get() = enabled && errors.isEmpty()
+
+    companion object {
+        val Disabled = ListingSyncReport(enabled = false)
+    }
+}
+
+interface ListingRepository {
+    val remoteSyncEnabled: Boolean
+        get() = false
+
+    fun observeListings(): Flow<List<Listing>>
+    fun observeListing(id: String): Flow<Listing?>
+    suspend fun getAll(): List<Listing>
+    suspend fun upsert(listing: Listing)
+    suspend fun upsertAll(listings: List<Listing>)
+    suspend fun delete(id: String)
+    suspend fun claimLegacyListings(ownerId: String, sellerName: String)
+    suspend fun count(): Int
+    suspend fun synchronize(): ListingSyncReport = ListingSyncReport.Disabled
+}
+
+class OfflineListingRepository(
+    private val listingDao: ListingDao
+) : ListingRepository {
+    override fun observeListings(): Flow<List<Listing>> =
+        listingDao.observeAll().map { entities -> entities.map { it.toModel() } }
+
+    override fun observeListing(id: String): Flow<Listing?> =
+        listingDao.observeById(id).map { it?.toModel() }
+
+    override suspend fun getAll(): List<Listing> =
+        listingDao.getAll().map { it.toModel() }
+
+    override suspend fun upsert(listing: Listing) {
+        listingDao.upsert(ListingValidator.requireValid(listing).toEntity())
+    }
+
+    override suspend fun upsertAll(listings: List<Listing>) {
+        listingDao.upsertAll(
+            listings.map { ListingValidator.requireValid(it).toEntity() }
+        )
+    }
+
+    override suspend fun delete(id: String) {
+        require(id.isNotBlank()) { "Identyfikator ogłoszenia nie może być pusty." }
+        listingDao.deleteById(id)
+    }
+
+    override suspend fun claimLegacyListings(ownerId: String, sellerName: String) {
+        require(ownerId.isNotBlank()) { "Identyfikator właściciela nie może być pusty." }
+        require(sellerName.isNotBlank()) { "Nazwa sprzedającego nie może być pusta." }
+        listingDao.claimLegacyListings(ownerId, sellerName)
+    }
+
+    override suspend fun count(): Int = listingDao.count()
+}

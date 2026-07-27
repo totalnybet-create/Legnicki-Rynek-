@@ -6,6 +6,13 @@ data class Category(
     val symbol: String
 )
 
+enum class ListingStatus {
+    ACTIVE,
+    RESERVED,
+    SOLD,
+    EXPIRED
+}
+
 data class Listing(
     val id: String,
     val title: String,
@@ -13,28 +20,54 @@ data class Listing(
     val location: String,
     val categoryId: String,
     val description: String,
-    val isFavorite: Boolean = false
-)
+    val imageUris: List<String> = emptyList(),
+    val ownerId: String = "",
+    val sellerName: String = "Użytkownik",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+    val status: ListingStatus = ListingStatus.ACTIVE,
+    val isFavorite: Boolean = false,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+) {
+    val hasCoordinates: Boolean
+        get() = latitude != null && longitude != null &&
+            latitude in -90.0..90.0 && longitude in -180.0..180.0
+}
 
 data class LocalEvent(
     val id: String,
     val title: String,
     val date: String,
     val location: String,
-    val description: String
+    val description: String,
+    val sourceUrl: String = ""
 )
 
 data class Conversation(
     val id: String,
     val person: String,
+    val listingId: String?,
     val listingTitle: String,
     val lastMessage: String,
-    val time: String,
-    val unread: Boolean
+    val updatedAt: Long,
+    val unreadCount: Int = 0
+)
+
+data class ChatMessage(
+    val id: String,
+    val conversationId: String,
+    val senderName: String,
+    val body: String,
+    val sentAt: Long,
+    val sentByCurrentUser: Boolean,
+    val isRead: Boolean = false
 )
 
 data class UserProfile(
+    val id: String = "",
     val name: String = "",
     val email: String = "",
-    val loggedIn: Boolean = false
+    val loggedIn: Boolean = false,
+    val remoteSession: Boolean = false
 )

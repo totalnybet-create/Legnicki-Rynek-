@@ -1,6 +1,7 @@
 package pl.legnickirynek.app.data
 
 import pl.legnickirynek.app.model.Category
+import pl.legnickirynek.app.model.ChatMessage
 import pl.legnickirynek.app.model.Conversation
 import pl.legnickirynek.app.model.Listing
 import pl.legnickirynek.app.model.LocalEvent
@@ -77,22 +78,56 @@ object SampleData {
         )
     )
 
+    private val sampleTime = System.currentTimeMillis()
+
     val conversations = listOf(
         Conversation(
             id = "c1",
             person = "Marek",
+            listingId = "rower-miejski",
             listingTitle = "Rower miejski w dobrym stanie",
             lastMessage = "Czy ogłoszenie jest jeszcze aktualne?",
-            time = "12:42",
-            unread = true
+            updatedAt = sampleTime - 20 * 60 * 1000L,
+            unreadCount = 1
         ),
         Conversation(
             id = "c2",
             person = "Anna",
+            listingId = "thinkpad",
             listingTitle = "Laptop Lenovo ThinkPad",
             lastMessage = "Mogę odebrać jutro po 17:00.",
-            time = "Wczoraj",
-            unread = false
+            updatedAt = sampleTime - 24 * 60 * 60 * 1000L,
+            unreadCount = 0
+        )
+    )
+
+    val messages = listOf(
+        ChatMessage(
+            id = "m1",
+            conversationId = "c1",
+            senderName = "Marek",
+            body = "Dzień dobry. Czy ogłoszenie jest jeszcze aktualne?",
+            sentAt = sampleTime - 20 * 60 * 1000L,
+            sentByCurrentUser = false,
+            isRead = false
+        ),
+        ChatMessage(
+            id = "m2",
+            conversationId = "c2",
+            senderName = "Ty",
+            body = "Tak, laptop jest nadal dostępny.",
+            sentAt = sampleTime - 25 * 60 * 60 * 1000L,
+            sentByCurrentUser = true,
+            isRead = true
+        ),
+        ChatMessage(
+            id = "m3",
+            conversationId = "c2",
+            senderName = "Anna",
+            body = "Mogę odebrać jutro po 17:00.",
+            sentAt = sampleTime - 24 * 60 * 60 * 1000L,
+            sentByCurrentUser = false,
+            isRead = true
         )
     )
 }

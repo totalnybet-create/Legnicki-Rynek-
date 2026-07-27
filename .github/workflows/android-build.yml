@@ -11,9 +11,17 @@ on:
       - ".github/workflows/android-build.yml"
   workflow_dispatch:
 
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LISTINGS_API_BASE_URL: ${{ secrets.LISTINGS_API_BASE_URL }}
+      LISTINGS_API_TOKEN: ${{ secrets.LISTINGS_API_TOKEN }}
 
     steps:
       - name: Pobierz repozytorium
@@ -30,19 +38,42 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Testy jednostkowe
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle -p android-app testDebugUnitTest --stacktrace --no-daemon 2>&1 | tee android-unit-tests.log
+
+      - name: Android Lint
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle -p android-app lintDebug --stacktrace --no-daemon 2>&1 | tee android-lint.log
+
       - name: Zbuduj testowe APK
         shell: bash
         run: |
           set -o pipefail
-          gradle -p android-app assembleDebug --stacktrace 2>&1 | tee android-build.log
+          gradle -p android-app assembleDebug --stacktrace --no-daemon 2>&1 | tee android-build.log
 
-      - name: Zapisz log kompilacji
+      - name: Zapisz logi weryfikacji
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-build-log
-          path: android-build.log
-          if-no-files-found: error
+          name: android-verification-logs
+          path: |
+            android-unit-tests.log
+            android-lint.log
+            android-build.log
+          if-no-files-found: warn
+
+      - name: Zapisz raport lint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-report
+          path: android-app/app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
 
       - name: Zapisz APK jako artefakt
         if: success()

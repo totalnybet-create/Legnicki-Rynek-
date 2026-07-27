@@ -1,80 +1,78 @@
 package pl.legnickirynek.app.ui
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import pl.legnickirynek.app.data.LocalStore
-import pl.legnickirynek.app.data.SampleData
-import pl.legnickirynek.app.model.Listing
-import pl.legnickirynek.app.model.UserProfile
+import pl.legnickirynek.app.domain.ListingAccessPolicy
 import pl.legnickirynek.app.ui.screens.AddListingScreen
 import pl.legnickirynek.app.ui.screens.CategoriesScreen
+import pl.legnickirynek.app.ui.screens.ConversationScreen
+import pl.legnickirynek.app.ui.screens.EditListingScreen
 import pl.legnickirynek.app.ui.screens.HomeScreen
+import pl.legnickirynek.app.ui.screens.ListingDetailScreen
+import pl.legnickirynek.app.ui.screens.ListingsCollectionScreen
 import pl.legnickirynek.app.ui.screens.MessagesScreen
 import pl.legnickirynek.app.ui.screens.ProfileScreen
-import pl.legnickirynek.app.ui.theme.LegnicaCoral
-import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
 private data class AppDestination(
     val route: String,
     val label: String,
-    val symbol: String
+    val icon: ImageVector
 )
 
 private val destinations = listOf(
-    AppDestination("home", "Główna", "⌂"),
-    AppDestination("categories", "Kategorie", "▦"),
-    AppDestination("add", "Dodaj", "+"),
-    AppDestination("messages", "Wiadomości", "✉"),
-    AppDestination("profile", "Profil", "♙")
+    AppDestination("home", "Główna", Icons.Default.Home),
+    AppDestination("categories", "Kategorie", Icons.Default.Category),
+    AppDestination("add", "Dodaj", Icons.Default.AddCircle),
+    AppDestination("messages", "Wiadomości", Icons.Default.ChatBubble),
+    AppDestination("profile", "Profil", Icons.Default.Person)
 )
 
 @Composable
-fun LegnickiRynekApp() {
-    val context = LocalContext.current.applicationContext
+fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
+    val uiState by appViewModel.uiState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
-    val listings = remember(context) {
-        val savedListings = LocalStore.loadListings(context)
-        mutableStateListOf<Listing>().apply {
-            addAll(savedListings.ifEmpty { SampleData.listings })
-        }
-    }
-    var profile by remember(context) {
-        mutableStateOf(LocalStore.loadProfile(context))
-    }
+    val snackbarHostState = remember { SnackbarHostState() }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: "home"
+    val showBottomBar = destinations.any { it.route == currentRoute }
+    val unreadMessageCount = uiState.conversations.sumOf { it.unreadCount }
 
-    fun persistListings() {
-        LocalStore.saveListings(context, listings)
-    }
-
-    fun toggleFavorite(id: String) {
-        val index = listings.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            listings[index] = listings[index].copy(isFavorite = !listings[index].isFavorite)
-            persistListings()
+    LaunchedEffect(uiState.dataError) {
+        uiState.dataError?.let { error ->
+            snackbarHostState.showSnackbar(error)
+            appViewModel.clearDataError()
         }
     }
 
-    fun navigate(route: String) {
+    fun navigateTopLevel(route: String) {
         navController.navigate(route) {
             launchSingleTop = true
             restoreState = true
@@ -84,24 +82,69 @@ fun LegnickiRynekApp() {
         }
     }
 
+    fun openListing(id: String) {
+        navController.navigate("listing/$id") {
+            launchSingleTop = true
+        }
+    }
+
+    fun openConversation(id: String) {
+        navController.navigate("conversation/$id") {
+            launchSingleTop = true
+        }
+    }
+
+    fun openCreatedListing(id: String) {
+        navController.navigate("listing/$id") {
+            launchSingleTop = true
+            popUpTo("add") {
+                inclusive = true
+            }
+        }
+    }
+
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
-                destinations.forEach { destination ->
-                    val selected = currentRoute == destination.route
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { navigate(destination.route) },
-                        icon = {
-                            Text(
-                                text = destination.symbol,
-                                fontSize = if (destination.route == "add") 27.sp else 21.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (selected) LegnicaCoral else LegnicaNavy
+            if (showBottomBar) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    destinations.forEach { destination ->
+                        val selected = currentRoute == destination.route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = { navigateTopLevel(destination.route) },
+                            icon = {
+                                if (destination.route == "messages" && unreadMessageCount > 0) {
+                                    BadgedBox(
+                                        badge = {
+                                            Badge {
+                                                Text(unreadMessageCount.coerceAtMost(99).toString())
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = destination.icon,
+                                            contentDescription = destination.label
+                                        )
+                                    }
+                                } else {
+                                    Icon(
+                                        imageVector = destination.icon,
+                                        contentDescription = destination.label
+                                    )
+                                }
+                            },
+                            label = { Text(destination.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        },
-                        label = { Text(destination.label, fontSize = 11.sp) }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -113,42 +156,189 @@ fun LegnickiRynekApp() {
         ) {
             composable("home") {
                 HomeScreen(
-                    listings = listings,
-                    onOpenCategories = { navigate("categories") },
-                    onOpenProfile = { navigate("profile") },
-                    onToggleFavorite = ::toggleFavorite
+                    listings = uiState.listings,
+                    weather = uiState.weather,
+                    events = uiState.events,
+                    localNews = uiState.localNews,
+                    localDataLoading = uiState.localDataLoading,
+                    localDataError = uiState.localDataError,
+                    onRefreshLocalData = appViewModel::refreshLocalData,
+                    onOpenCategories = { navigateTopLevel("categories") },
+                    onOpenProfile = { navigateTopLevel("profile") },
+                    onOpenListing = ::openListing,
+                    onToggleFavorite = appViewModel::toggleFavorite
                 )
             }
             composable("categories") {
                 CategoriesScreen(
-                    listings = listings,
-                    onToggleFavorite = ::toggleFavorite
+                    listings = uiState.listings,
+                    onOpenListing = ::openListing,
+                    onToggleFavorite = appViewModel::toggleFavorite
                 )
             }
             composable("add") {
                 AddListingScreen(
                     onListingCreated = { listing ->
-                        listings.add(0, listing)
-                        persistListings()
-                        navigate("home")
+                        appViewModel.addListing(listing)
+                        openCreatedListing(listing.id)
                     }
                 )
             }
             composable("messages") {
-                MessagesScreen()
+                MessagesScreen(
+                    conversations = uiState.conversations,
+                    onOpenConversation = ::openConversation
+                )
             }
             composable("profile") {
                 ProfileScreen(
-                    profile = profile,
-                    listingCount = listings.count { it.id.startsWith("listing-") },
-                    favoriteCount = listings.count { it.isFavorite },
-                    onLogin = { name, email ->
-                        profile = UserProfile(name = name, email = email, loggedIn = true)
-                        LocalStore.saveProfile(context, profile)
+                    profile = uiState.profile,
+                    listingCount = uiState.listings.count {
+                        ListingAccessPolicy.canManage(it, uiState.profile)
                     },
-                    onLogout = {
-                        profile = UserProfile()
-                        LocalStore.saveProfile(context, profile)
+                    favoriteCount = uiState.listings.count { it.isFavorite },
+                    onOpenMyListings = {
+                        navController.navigate("my-listings")
+                    },
+                    onOpenFavorites = {
+                        navController.navigate("favorites")
+                    },
+                    onLogin = appViewModel::login,
+                    onLogout = appViewModel::logout
+                )
+            }
+            composable("favorites") {
+                ListingsCollectionScreen(
+                    title = "Ulubione",
+                    listings = uiState.listings.filter { it.isFavorite },
+                    emptyMessage = "Nie masz jeszcze ulubionych ogłoszeń.",
+                    onBack = { navController.popBackStack() },
+                    onOpenListing = ::openListing,
+                    onToggleFavorite = appViewModel::toggleFavorite,
+                    onEmptyAction = { navigateTopLevel("home") },
+                    emptyActionLabel = "Przeglądaj ogłoszenia"
+                )
+            }
+            composable("my-listings") {
+                val myListings = if (uiState.profile.loggedIn) {
+                    uiState.listings.filter {
+                        ListingAccessPolicy.canManage(it, uiState.profile)
+                    }
+                } else {
+                    emptyList()
+                }
+
+                ListingsCollectionScreen(
+                    title = "Moje ogłoszenia",
+                    listings = myListings,
+                    emptyMessage = if (uiState.profile.loggedIn) {
+                        "Nie masz jeszcze własnych ogłoszeń."
+                    } else {
+                        "Zaloguj się, aby zobaczyć swoje ogłoszenia."
+                    },
+                    onBack = { navController.popBackStack() },
+                    onOpenListing = ::openListing,
+                    onToggleFavorite = appViewModel::toggleFavorite,
+                    onEmptyAction = {
+                        if (uiState.profile.loggedIn) {
+                            navigateTopLevel("add")
+                        } else {
+                            navigateTopLevel("profile")
+                        }
+                    },
+                    emptyActionLabel = if (uiState.profile.loggedIn) {
+                        "Dodaj ogłoszenie"
+                    } else {
+                        "Przejdź do logowania"
+                    }
+                )
+            }
+            composable("listing/{listingId}") { entry ->
+                val listingId = entry.arguments?.getString("listingId").orEmpty()
+                val listing = uiState.listings.firstOrNull { it.id == listingId }
+                val canManage = listing?.let {
+                    ListingAccessPolicy.canManage(it, uiState.profile)
+                } == true
+
+                ListingDetailScreen(
+                    listing = listing,
+                    canManage = canManage,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate("edit/$listingId") },
+                    onDelete = {
+                        appViewModel.deleteListing(listingId)
+                        navController.popBackStack()
+                    },
+                    onToggleFavorite = { appViewModel.toggleFavorite(listingId) },
+                    onStatusChange = { status ->
+                        appViewModel.updateListingStatus(listingId, status)
+                    },
+                    onMessageSeller = {
+                        listing?.let { currentListing ->
+                            val conversationId = appViewModel.ensureConversation(currentListing)
+                            openConversation(conversationId)
+                        }
+                    }
+                )
+            }
+            composable("edit/{listingId}") { entry ->
+                val listingId = entry.arguments?.getString("listingId").orEmpty()
+                val listing = uiState.listings.firstOrNull { it.id == listingId }
+                val canManage = listing?.let {
+                    ListingAccessPolicy.canManage(it, uiState.profile)
+                } == true
+
+                if (listing == null || !canManage) {
+                    ListingDetailScreen(
+                        listing = listing,
+                        canManage = false,
+                        onBack = { navController.popBackStack() },
+                        onEdit = {},
+                        onDelete = {},
+                        onToggleFavorite = {},
+                        onStatusChange = {}
+                    )
+                } else {
+                    EditListingScreen(
+                        listing = listing,
+                        onListingUpdated = { updatedListing ->
+                            appViewModel.updateListing(updatedListing)
+                            navController.popBackStack()
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable("conversation/{conversationId}") { entry ->
+                val conversationId = entry.arguments?.getString("conversationId").orEmpty()
+                val conversationFlow = remember(conversationId) {
+                    appViewModel.observeConversation(conversationId)
+                }
+                val messagesFlow = remember(conversationId) {
+                    appViewModel.observeMessages(conversationId)
+                }
+                val conversation by conversationFlow.collectAsStateWithLifecycle(
+                    initialValue = uiState.conversations.firstOrNull { it.id == conversationId }
+                )
+                val messages by messagesFlow.collectAsStateWithLifecycle(
+                    initialValue = emptyList()
+                )
+
+                LaunchedEffect(conversationId) {
+                    appViewModel.markConversationRead(conversationId)
+                }
+
+                ConversationScreen(
+                    conversation = conversation,
+                    messages = messages,
+                    onBack = { navController.popBackStack() },
+                    onOpenListing = ::openListing,
+                    onSendMessage = { body ->
+                        appViewModel.sendMessage(conversationId, body)
+                    },
+                    onDeleteConversation = {
+                        appViewModel.deleteConversation(conversationId)
+                        navController.popBackStack()
                     }
                 )
             }
