@@ -14,16 +14,16 @@ class ListingConvertersTest {
             "content://gallery/second"
         )
 
-        val restored = converters.jsonToImageUris(
-            converters.imageUrisToJson(imageUris)
+        val restored = converters.storageToImageUris(
+            converters.imageUrisToStorage(imageUris)
         )
 
         assertEquals(imageUris, restored)
     }
 
     @Test
-    fun `uszkodzony JSON galerii zwraca pustą listę`() {
-        assertEquals(emptyList<String>(), converters.jsonToImageUris("not-json"))
+    fun `uszkodzony zapis galerii zwraca pustą listę`() {
+        assertEquals(emptyList<String>(), converters.storageToImageUris("***"))
     }
 
     @Test
