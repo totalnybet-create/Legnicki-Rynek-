@@ -57,7 +57,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     profile = profile
                 )
             }.collect { state ->
-                _uiState.value = state
+                _uiState.update { current ->
+                    state.copy(dataError = current.dataError)
+                }
             }
         }
     }
