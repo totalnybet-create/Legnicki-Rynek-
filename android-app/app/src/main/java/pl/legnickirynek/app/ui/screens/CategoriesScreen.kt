@@ -40,11 +40,7 @@ import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.model.Listing
 
 @Composable
-fun CategoriesScreen(
-    listings: List<Listing>,
-    onToggleFavorite: (String) -> Unit,
-    onOpenListing: (String) -> Unit = {}
-) {
+fun CategoriesScreen(listings: List<Listing>, onToggleFavorite: (String) -> Unit) {
     var selectedCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
     val visibleListings = selectedCategoryId?.let { id -> listings.filter { it.categoryId == id } } ?: listings
 
@@ -53,9 +49,7 @@ fun CategoriesScreen(
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         item {
-            Column(
-                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(20.dp)
-            ) {
+            Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(20.dp)) {
                 Text("Kategorie", color = MaterialTheme.colorScheme.onPrimary, fontSize = 29.sp, fontWeight = FontWeight.Black)
                 Text("Wybierz dział i przeglądaj lokalne oferty", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .76f))
             }
@@ -71,16 +65,11 @@ fun CategoriesScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     userScrollEnabled = false
                 ) {
-                    item {
-                        CategoryTile("▦", "Wszystkie", listings.size, selectedCategoryId == null) { selectedCategoryId = null }
-                    }
+                    item { CategoryTile("▦", "Wszystkie", listings.size, selectedCategoryId == null) { selectedCategoryId = null } }
                     gridItems(SampleData.categories) { category ->
-                        CategoryTile(
-                            category.symbol,
-                            category.name,
-                            listings.count { it.categoryId == category.id },
-                            selectedCategoryId == category.id
-                        ) { selectedCategoryId = category.id }
+                        CategoryTile(category.symbol, category.name, listings.count { it.categoryId == category.id }, selectedCategoryId == category.id) {
+                            selectedCategoryId = category.id
+                        }
                     }
                 }
             }
@@ -99,11 +88,7 @@ fun CategoriesScreen(
             item { Text("Brak ogłoszeń w tej kategorii.", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             items(visibleListings, key = { it.id }) { listing ->
-                ListingCard(
-                    listing = listing,
-                    onToggleFavorite = { onToggleFavorite(listing.id) },
-                    onOpen = { onOpenListing(listing.id) }
-                )
+                ListingCard(listing = listing, onToggleFavorite = { onToggleFavorite(listing.id) })
             }
         }
     }
@@ -114,9 +99,7 @@ private fun CategoryTile(symbol: String, name: String, count: Int, selected: Boo
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).semantics { role = Role.Button },
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(symbol, fontSize = 30.sp)
