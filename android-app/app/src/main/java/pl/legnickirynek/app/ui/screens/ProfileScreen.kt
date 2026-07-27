@@ -11,13 +11,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +49,8 @@ fun ProfileScreen(
     profile: UserProfile,
     listingCount: Int,
     favoriteCount: Int,
+    onOpenMyListings: () -> Unit,
+    onOpenFavorites: () -> Unit,
     onLogin: (name: String, email: String) -> Unit,
     onLogout: () -> Unit
 ) {
@@ -115,14 +123,17 @@ fun ProfileScreen(
                             profile.email,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            "Moje ogłoszenia: $listingCount",
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            "Ulubione: $favoriteCount",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+
+                        FilledTonalButton(
+                            onClick = onOpenMyListings,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Default.Inventory2, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Moje ogłoszenia ($listingCount)")
+                        }
+
                         OutlinedButton(
                             onClick = {
                                 onLogout()
@@ -141,7 +152,7 @@ fun ProfileScreen(
                             fontWeight = FontWeight.ExtraBold
                         )
                         Text(
-                            "Na obecnym etapie dane konta są zapisywane lokalnie na telefonie.",
+                            "Konto jest obecnie przechowywane bezpiecznie w lokalnym DataStore.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         OutlinedTextField(
@@ -198,6 +209,16 @@ fun ProfileScreen(
                         ) {
                             Text("Zaloguj", fontWeight = FontWeight.ExtraBold)
                         }
+                    }
+
+                    FilledTonalButton(
+                        onClick = onOpenFavorites,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Favorite, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Ulubione ($favoriteCount)")
                     }
 
                     if (message.isNotBlank()) {
