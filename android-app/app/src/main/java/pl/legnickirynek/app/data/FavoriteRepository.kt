@@ -14,7 +14,7 @@ class OfflineFavoriteRepository(
     private val favoriteDao: FavoriteDao
 ) : FavoriteRepository {
     override fun observeFavoriteListingIds(accountId: String): Flow<List<String>> {
-        requireAccountAndListing(accountId, "placeholder")
+        requireAccountId(accountId)
         return favoriteDao.observeFavoriteListingIds(accountId)
     }
 
@@ -23,7 +23,9 @@ class OfflineFavoriteRepository(
         listingId: String,
         favorite: Boolean
     ) {
-        requireAccountAndListing(accountId, listingId)
+        requireAccountId(accountId)
+        require(listingId.isNotBlank()) { "Identyfikator ogłoszenia nie może być pusty." }
+
         if (favorite) {
             favoriteDao.upsert(
                 FavoriteEntity(
@@ -37,12 +39,11 @@ class OfflineFavoriteRepository(
     }
 
     override suspend fun claimLegacyFavorites(accountId: String) {
-        require(accountId.isNotBlank()) { "Identyfikator konta nie może być pusty." }
+        requireAccountId(accountId)
         favoriteDao.claimLegacyFavorites(accountId)
     }
 
-    private fun requireAccountAndListing(accountId: String, listingId: String) {
+    private fun requireAccountId(accountId: String) {
         require(accountId.isNotBlank()) { "Identyfikator konta nie może być pusty." }
-        require(listingId.isNotBlank()) { "Identyfikator ogłoszenia nie może być pusty." }
     }
 }
