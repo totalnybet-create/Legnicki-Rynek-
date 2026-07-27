@@ -31,9 +31,21 @@ jobs:
           gradle-version: "8.9"
 
       - name: Zbuduj testowe APK
-        run: gradle -p android-app assembleDebug --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle -p android-app assembleDebug --stacktrace 2>&1 | tee android-build.log
+
+      - name: Zapisz log kompilacji
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-log
+          path: android-build.log
+          if-no-files-found: error
 
       - name: Zapisz APK jako artefakt
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: legnicki-rynek-debug-apk
