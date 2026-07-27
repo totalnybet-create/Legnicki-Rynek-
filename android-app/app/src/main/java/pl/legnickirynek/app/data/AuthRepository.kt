@@ -196,7 +196,8 @@ object AuthJsonCodec {
                 id = id,
                 name = name,
                 email = email,
-                loggedIn = true
+                loggedIn = true,
+                remoteSession = true
             ),
             session = AuthSession(
                 accessToken = accessToken,
