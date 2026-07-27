@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,6 +36,7 @@ import pl.legnickirynek.app.ui.theme.LegnicaCoral
 import pl.legnickirynek.app.ui.theme.LegnicaMuted
 import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddListingScreen(onListingCreated: (Listing) -> Unit) {
     var title by rememberSaveable { mutableStateOf("") }
