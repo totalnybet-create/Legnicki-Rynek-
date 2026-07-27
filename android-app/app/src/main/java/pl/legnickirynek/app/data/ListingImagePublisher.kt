@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import pl.legnickirynek.app.data.remote.MultipartHttpClient
 import pl.legnickirynek.app.data.remote.RemoteMediaService
 import pl.legnickirynek.app.model.Listing
@@ -36,8 +37,11 @@ class AndroidListingImagePublisher(
                     val mimeType = contentResolver.getType(uri)
                         ?.takeIf { it.startsWith("image/") }
                         ?: throw IllegalArgumentException("Wybrany plik nie jest obrazem.")
-                    val bytes = contentResolver.openInputStream(uri)?.use(::readLimited)
-                        ?: throw IllegalArgumentException("Nie można odczytać wybranego zdjęcia.")
+                    val bytes = contentResolver.openInputStream(uri)?.use { input ->
+                        readLimited(input)
+                    } ?: throw IllegalArgumentException(
+                        "Nie można odczytać wybranego zdjęcia."
+                    )
                     remoteMediaService.uploadImage(
                         fileName = resolveFileName(uri, listing.id, index),
                         mimeType = mimeType,
@@ -50,7 +54,7 @@ class AndroidListingImagePublisher(
         return listing.copy(imageUris = publishedUris)
     }
 
-    private fun readLimited(input: java.io.InputStream): ByteArray {
+    private fun readLimited(input: InputStream): ByteArray {
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(8_192)
         var total = 0
@@ -81,11 +85,16 @@ class AndroidListingImagePublisher(
             }
         }.getOrNull()
 
+        val safeListingId = listingId
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .take(60)
+            .ifBlank { "listing" }
+
         return displayName
             ?.replace(Regex("[^A-Za-z0-9._-]"), "_")
             ?.take(120)
             ?.takeIf(String::isNotBlank)
-            ?: "${listingId.take(60)}-${index + 1}.jpg"
+            ?: "$safeListingId-${index + 1}.jpg"
     }
 
     private fun isLocalContentUri(value: String): Boolean =
