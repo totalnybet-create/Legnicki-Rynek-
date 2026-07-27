@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -60,13 +61,16 @@ class AppViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            runCatching { initializeApp() }
-                .onSuccess { initializationState.value = InitializationState.Ready }
-                .onFailure {
-                    initializationState.value = InitializationState.Failed(
-                        "Nie udało się przygotować lokalnych danych aplikacji."
-                    )
-                }
+            try {
+                initializeApp()
+                initializationState.value = InitializationState.Ready
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                initializationState.value = InitializationState.Failed(
+                    "Nie udało się przygotować lokalnych danych aplikacji."
+                )
+            }
         }
     }
 
@@ -106,8 +110,14 @@ class AppViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             actionError.value = null
-            runCatching { action() }
-                .onFailure { actionError.value = errorMessage }
+
+            try {
+                action()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                actionError.value = errorMessage
+            }
         }
     }
 
