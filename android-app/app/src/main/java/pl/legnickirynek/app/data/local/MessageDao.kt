@@ -75,7 +75,7 @@ interface MessageDao {
 
     @Query(
         "UPDATE conversations SET accountId = :accountId " +
-            "WHERE accountId = ''"
+            "WHERE accountId = '' OR accountId = 'legacy-local'"
     )
     suspend fun claimLegacyConversations(accountId: String)
 
