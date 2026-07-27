@@ -1,10 +1,11 @@
 package pl.legnickirynek.app.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,9 +15,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,18 +27,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.model.Listing
-import pl.legnickirynek.app.ui.theme.LegnicaBackground
-import pl.legnickirynek.app.ui.theme.LegnicaCoral
-import pl.legnickirynek.app.ui.theme.LegnicaMuted
-import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddListingScreen(onListingCreated: (Listing) -> Unit) {
     var title by rememberSaveable { mutableStateOf("") }
@@ -47,131 +43,60 @@ fun AddListingScreen(onListingCreated: (Listing) -> Unit) {
     var message by rememberSaveable { mutableStateOf("") }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LegnicaBackground),
-        contentPadding = PaddingValues(bottom = 32.dp)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(bottom = 36.dp)
     ) {
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LegnicaNavy)
-                    .padding(20.dp)
-            ) {
-                Text("Dodaj ogłoszenie", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold)
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    "Uzupełnij dane oferty. Publikacja zajmuje mniej niż minutę.",
-                    color = Color.White.copy(alpha = 0.74f)
-                )
+            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(22.dp)) {
+                Text("Dodaj ogłoszenie", color = MaterialTheme.colorScheme.onPrimary, fontSize = 29.sp, fontWeight = FontWeight.Black)
+                Text("Przejrzysty formularz lokalnej oferty", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .76f))
             }
         }
-
         item {
-            Column(
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                shape = RoundedCornerShape(26.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
             ) {
-                Text("Kategoria", fontWeight = FontWeight.Bold)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(SampleData.categories) { category ->
-                        FilterChip(
-                            selected = categoryId == category.id,
-                            onClick = { categoryId = category.id },
-                            label = { Text("${category.symbol} ${category.name}") }
-                        )
-                    }
-                }
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Tytuł ogłoszenia") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp)
-                )
-
-                OutlinedTextField(
-                    value = price,
-                    onValueChange = { price = it.filter(Char::isDigit) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Cena w zł") },
-                    suffix = { Text("zł") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp)
-                )
-
-                OutlinedTextField(
-                    value = location,
-                    onValueChange = { location = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Lokalizacja") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp)
-                )
-
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Opis") },
-                    minLines = 4,
-                    shape = RoundedCornerShape(16.dp)
-                )
-
-                Button(
-                    onClick = {
-                        val numericPrice = price.toIntOrNull()
-                        if (title.trim().length < 4) {
-                            message = "Tytuł musi mieć co najmniej 4 znaki."
-                        } else if (numericPrice == null) {
-                            message = "Podaj prawidłową cenę."
-                        } else if (location.isBlank()) {
-                            message = "Podaj lokalizację."
-                        } else if (description.trim().length < 10) {
-                            message = "Opis musi mieć co najmniej 10 znaków."
-                        } else {
-                            onListingCreated(
-                                Listing(
-                                    id = "listing-${System.currentTimeMillis()}",
-                                    title = title.trim(),
-                                    price = numericPrice,
-                                    location = location.trim(),
-                                    categoryId = categoryId,
-                                    description = description.trim()
-                                )
-                            )
-                            title = ""
-                            price = ""
-                            location = "Legnica"
-                            description = ""
-                            message = "Ogłoszenie zostało opublikowane."
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
+                    Text("1. Wybierz kategorię", fontSize = 19.sp, fontWeight = FontWeight.Black)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(SampleData.categories) { category ->
+                            FilterChip(selected = categoryId == category.id, onClick = { categoryId = category.id }, label = { Text("${category.symbol} ${category.name}") })
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(17.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LegnicaCoral)
-                ) {
-                    Text("Opublikuj ogłoszenie", fontWeight = FontWeight.ExtraBold)
+                    }
+                    Text("2. Podstawowe informacje", fontSize = 19.sp, fontWeight = FontWeight.Black)
+                    OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Tytuł ogłoszenia") }, supportingText = { Text("Krótko i konkretnie") }, singleLine = true, shape = RoundedCornerShape(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(price, { price = it.filter(Char::isDigit) }, Modifier.weight(1f), label = { Text("Cena") }, suffix = { Text("zł") }, singleLine = true, shape = RoundedCornerShape(16.dp))
+                        OutlinedTextField(location, { location = it }, Modifier.weight(1f), label = { Text("Lokalizacja") }, singleLine = true, shape = RoundedCornerShape(16.dp))
+                    }
+                    Text("3. Opisz ofertę", fontSize = 19.sp, fontWeight = FontWeight.Black)
+                    OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Opis") }, minLines = 5, shape = RoundedCornerShape(16.dp))
+                    Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Zdjęcia", fontWeight = FontWeight.Bold)
+                            Text("Miejsce na galerię zdjęć — interfejs demonstracyjny.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            val numericPrice = price.toIntOrNull()
+                            if (title.trim().length < 4 || numericPrice == null || location.isBlank() || description.trim().length < 10) {
+                                message = "Uzupełnij wymagane pola."
+                            } else {
+                                onListingCreated(Listing("listing-${System.currentTimeMillis()}", title.trim(), numericPrice, location.trim(), categoryId, description.trim()))
+                                message = "Podgląd ogłoszenia jest gotowy."
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(18.dp)
+                    ) { Text("Zobacz podgląd", fontWeight = FontWeight.Black) }
+                    AnimatedVisibility(message.isNotBlank()) {
+                        Text(message, color = if (message.startsWith("Podgląd")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                    }
+                    Text("Ten ekran obejmuje wyłącznie warstwę UI formularza.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
-
-                if (message.isNotBlank()) {
-                    Text(
-                        text = message,
-                        color = if (message.startsWith("Ogłoszenie")) LegnicaNavy else LegnicaCoral,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Text(
-                    "Ogłoszenie jest zapisywane w lokalnej bazie danych telefonu. Po podłączeniu API będzie również synchronizowane ze stroną internetową.",
-                    color = LegnicaMuted,
-                    fontSize = 13.sp
-                )
             }
         }
     }
