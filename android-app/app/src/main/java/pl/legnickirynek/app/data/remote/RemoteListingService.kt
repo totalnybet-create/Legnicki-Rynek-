@@ -30,8 +30,9 @@ interface RemoteMediaService {
 
 class RestRemoteListingService(
     baseUrl: String,
-    private val bearerToken: String,
+    private val bearerToken: String = "",
     private val httpClient: JsonHttpClient,
+    private val bearerTokenProvider: suspend () -> String = { bearerToken },
     private val multipartHttpClient: MultipartHttpClient = MultipartHttpClient(),
     private val gson: Gson = GsonBuilder()
         .setStrictness(Strictness.STRICT)
@@ -46,7 +47,7 @@ class RestRemoteListingService(
         val response = httpClient.request(
             method = "GET",
             url = "$normalizedBaseUrl/listings",
-            bearerToken = bearerToken
+            bearerToken = currentBearerToken()
         )
         return ListingJsonCodec.decodeList(response.body)
     }
@@ -57,7 +58,7 @@ class RestRemoteListingService(
             method = "PUT",
             url = "$normalizedBaseUrl/listings/${encodePathSegment(listing.id)}",
             body = ListingJsonCodec.encode(listing, gson),
-            bearerToken = bearerToken
+            bearerToken = currentBearerToken()
         )
     }
 
@@ -67,7 +68,7 @@ class RestRemoteListingService(
         httpClient.request(
             method = "DELETE",
             url = "$normalizedBaseUrl/listings/${encodePathSegment(id)}",
-            bearerToken = bearerToken
+            bearerToken = currentBearerToken()
         )
     }
 
@@ -85,10 +86,13 @@ class RestRemoteListingService(
                 mimeType = mimeType,
                 bytes = bytes
             ),
-            bearerToken = bearerToken
+            bearerToken = currentBearerToken()
         )
         return ListingJsonCodec.decodeUploadedImageUrl(response.body)
     }
+
+    private suspend fun currentBearerToken(): String =
+        bearerTokenProvider().trim().ifBlank { bearerToken.trim() }
 
     private fun checkConfigured() {
         check(isConfigured) {
