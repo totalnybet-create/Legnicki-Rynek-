@@ -157,6 +157,12 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
             composable("home") {
                 HomeScreen(
                     listings = uiState.listings,
+                    weather = uiState.weather,
+                    events = uiState.events,
+                    localNews = uiState.localNews,
+                    localDataLoading = uiState.localDataLoading,
+                    localDataError = uiState.localDataError,
+                    onRefreshLocalData = appViewModel::refreshLocalData,
                     onOpenCategories = { navigateTopLevel("categories") },
                     onOpenProfile = { navigateTopLevel("profile") },
                     onOpenListing = ::openListing,
