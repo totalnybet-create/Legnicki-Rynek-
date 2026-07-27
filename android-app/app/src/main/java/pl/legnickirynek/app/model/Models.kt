@@ -32,3 +32,9 @@ data class Conversation(
     val time: String,
     val unread: Boolean
 )
+
+data class UserProfile(
+    val name: String = "",
+    val email: String = "",
+    val loggedIn: Boolean = false
+)
