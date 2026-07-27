@@ -30,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import pl.legnickirynek.app.domain.ListingAccessPolicy
 import pl.legnickirynek.app.ui.screens.AddListingScreen
 import pl.legnickirynek.app.ui.screens.CategoriesScreen
 import pl.legnickirynek.app.ui.screens.ConversationScreen
@@ -187,7 +188,7 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                 ProfileScreen(
                     profile = uiState.profile,
                     listingCount = uiState.listings.count {
-                        it.sellerName == uiState.profile.name && uiState.profile.loggedIn
+                        ListingAccessPolicy.canManage(it, uiState.profile)
                     },
                     favoriteCount = uiState.listings.count { it.isFavorite },
                     onOpenMyListings = {
@@ -214,7 +215,9 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
             }
             composable("my-listings") {
                 val myListings = if (uiState.profile.loggedIn) {
-                    uiState.listings.filter { it.sellerName == uiState.profile.name }
+                    uiState.listings.filter {
+                        ListingAccessPolicy.canManage(it, uiState.profile)
+                    }
                 } else {
                     emptyList()
                 }
@@ -247,10 +250,9 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
             composable("listing/{listingId}") { entry ->
                 val listingId = entry.arguments?.getString("listingId").orEmpty()
                 val listing = uiState.listings.firstOrNull { it.id == listingId }
-                val canManage = listing != null && (
-                    listing.id.startsWith("listing-") ||
-                        uiState.profile.loggedIn && listing.sellerName == uiState.profile.name
-                    )
+                val canManage = listing?.let {
+                    ListingAccessPolicy.canManage(it, uiState.profile)
+                } == true
 
                 ListingDetailScreen(
                     listing = listing,
@@ -276,10 +278,13 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
             composable("edit/{listingId}") { entry ->
                 val listingId = entry.arguments?.getString("listingId").orEmpty()
                 val listing = uiState.listings.firstOrNull { it.id == listingId }
+                val canManage = listing?.let {
+                    ListingAccessPolicy.canManage(it, uiState.profile)
+                } == true
 
-                if (listing == null) {
+                if (listing == null || !canManage) {
                     ListingDetailScreen(
-                        listing = null,
+                        listing = listing,
                         canManage = false,
                         onBack = { navController.popBackStack() },
                         onEdit = {},
