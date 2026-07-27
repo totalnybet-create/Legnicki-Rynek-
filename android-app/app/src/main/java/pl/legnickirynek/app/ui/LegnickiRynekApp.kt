@@ -1,8 +1,17 @@
 package pl.legnickirynek.app.ui
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,10 +21,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -29,21 +36,19 @@ import pl.legnickirynek.app.ui.screens.CategoriesScreen
 import pl.legnickirynek.app.ui.screens.HomeScreen
 import pl.legnickirynek.app.ui.screens.MessagesScreen
 import pl.legnickirynek.app.ui.screens.ProfileScreen
-import pl.legnickirynek.app.ui.theme.LegnicaCoral
-import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
 private data class AppDestination(
     val route: String,
     val label: String,
-    val symbol: String
+    val icon: ImageVector
 )
 
 private val destinations = listOf(
-    AppDestination("home", "Główna", "⌂"),
-    AppDestination("categories", "Kategorie", "▦"),
-    AppDestination("add", "Dodaj", "+"),
-    AppDestination("messages", "Wiadomości", "✉"),
-    AppDestination("profile", "Profil", "♙")
+    AppDestination("home", "Główna", Icons.Default.Home),
+    AppDestination("categories", "Kategorie", Icons.Default.Category),
+    AppDestination("add", "Dodaj", Icons.Default.AddCircle),
+    AppDestination("messages", "Wiadomości", Icons.Default.ChatBubble),
+    AppDestination("profile", "Profil", Icons.Default.Person)
 )
 
 @Composable
@@ -85,22 +90,28 @@ fun LegnickiRynekApp() {
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 destinations.forEach { destination ->
                     val selected = currentRoute == destination.route
                     NavigationBarItem(
                         selected = selected,
                         onClick = { navigate(destination.route) },
                         icon = {
-                            Text(
-                                text = destination.symbol,
-                                fontSize = if (destination.route == "add") 27.sp else 21.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (selected) LegnicaCoral else LegnicaNavy
+                            Icon(
+                                imageVector = destination.icon,
+                                contentDescription = destination.label
                             )
                         },
-                        label = { Text(destination.label, fontSize = 11.sp) }
+                        label = { Text(destination.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
