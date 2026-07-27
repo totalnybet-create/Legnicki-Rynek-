@@ -7,9 +7,10 @@ import pl.legnickirynek.app.model.Conversation
 
 class MessageEntityTest {
     @Test
-    fun `rozmowa zachowuje wszystkie dane po mapowaniu`() {
+    fun `rozmowa zachowuje właściciela konta po mapowaniu`() {
         val conversation = Conversation(
             id = "conversation-1",
+            accountId = "account-123",
             person = "Anna",
             listingId = "listing-1",
             listingTitle = "Rower miejski",
@@ -19,6 +20,7 @@ class MessageEntityTest {
         )
 
         assertEquals(conversation, conversation.toEntity().toModel())
+        assertEquals("account-123", conversation.toEntity().accountId)
     }
 
     @Test
