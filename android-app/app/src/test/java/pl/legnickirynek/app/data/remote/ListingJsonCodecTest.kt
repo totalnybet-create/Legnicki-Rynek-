@@ -66,6 +66,22 @@ class ListingJsonCodecTest {
     }
 
     @Test
+    fun `kodek odczytuje bezpieczny adres po uploadzie`() {
+        val url = ListingJsonCodec.decodeUploadedImageUrl(
+            "{\"url\":\"https://cdn.example.pl/listings/photo.jpg\"}"
+        )
+
+        assertEquals("https://cdn.example.pl/listings/photo.jpg", url)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `kodek odrzuca lokalny adres zwrócony przez upload`() {
+        ListingJsonCodec.decodeUploadedImageUrl(
+            "{\"url\":\"content://gallery/1\"}"
+        )
+    }
+
+    @Test
     fun `konfiguracja api wymaga https poza emulatorem`() {
         assertTrue(RestRemoteListingService.isAllowedBaseUrl("https://api.example.pl/v1"))
         assertTrue(RestRemoteListingService.isAllowedBaseUrl("http://10.0.2.2:8080/api"))
