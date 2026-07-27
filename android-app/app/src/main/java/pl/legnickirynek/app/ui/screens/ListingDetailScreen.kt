@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -69,7 +70,8 @@ fun ListingDetailScreen(
     onDelete: () -> Unit,
     onToggleFavorite: () -> Unit,
     onStatusChange: (ListingStatus) -> Unit,
-    onMessageSeller: () -> Unit = {}
+    onMessageSeller: () -> Unit = {},
+    onOpenMap: () -> Unit = {}
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -139,6 +141,7 @@ fun ListingDetailScreen(
                 onRequestDelete = { showDeleteDialog = true },
                 onStatusChange = onStatusChange,
                 onMessageSeller = onMessageSeller,
+                onOpenMap = onOpenMap,
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -184,6 +187,7 @@ private fun ListingDetails(
     onRequestDelete: () -> Unit,
     onStatusChange: (ListingStatus) -> Unit,
     onMessageSeller: () -> Unit,
+    onOpenMap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val formattedPrice = NumberFormat
@@ -262,6 +266,28 @@ private fun ListingDetails(
                 Text(
                     text = listing.description,
                     lineHeight = 23.sp
+                )
+            }
+        }
+
+        item {
+            DetailCard(title = "Lokalizacja") {
+                Text(
+                    text = listing.location,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Button(
+                    onClick = onOpenMap,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.LocationOn, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Pokaż na mapie")
+                }
+                Text(
+                    text = "Dane mapy © OpenStreetMap contributors",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
                 )
             }
         }
