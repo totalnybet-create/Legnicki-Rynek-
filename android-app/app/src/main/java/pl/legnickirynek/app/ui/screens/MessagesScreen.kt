@@ -19,41 +19,42 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.legnickirynek.app.data.SampleData
-import pl.legnickirynek.app.ui.theme.LegnicaBackground
-import pl.legnickirynek.app.ui.theme.LegnicaCoral
-import pl.legnickirynek.app.ui.theme.LegnicaMuted
-import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
 @Composable
 fun MessagesScreen() {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(LegnicaBackground),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 28.dp)
     ) {
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(LegnicaNavy)
+                    .background(MaterialTheme.colorScheme.secondary)
                     .padding(20.dp)
             ) {
-                Text("Wiadomości", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Wiadomości",
+                    color = MaterialTheme.colorScheme.onSecondary,
+                    fontSize = 27.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
                 Spacer(Modifier.height(5.dp))
                 Text(
                     "Rozmowy dotyczące Twoich ogłoszeń i zakupów.",
-                    color = Color.White.copy(alpha = 0.74f)
+                    color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.74f)
                 )
             }
         }
@@ -63,7 +64,7 @@ fun MessagesScreen() {
                 Text(
                     "Nie masz jeszcze żadnych wiadomości.",
                     modifier = Modifier.padding(20.dp),
-                    color = LegnicaMuted
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
@@ -73,7 +74,9 @@ fun MessagesScreen() {
                         .padding(horizontal = 16.dp, vertical = 7.dp)
                         .fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -82,12 +85,15 @@ fun MessagesScreen() {
                         Box(
                             modifier = Modifier
                                 .size(52.dp)
-                                .background(LegnicaNavy.copy(alpha = 0.1f), CircleShape),
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant,
+                                    CircleShape
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 conversation.person.take(1).uppercase(),
-                                color = LegnicaNavy,
+                                color = MaterialTheme.colorScheme.secondary,
                                 fontSize = 21.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
@@ -98,20 +104,28 @@ fun MessagesScreen() {
                                 Text(
                                     conversation.person,
                                     modifier = Modifier.weight(1f),
-                                    fontWeight = if (conversation.unread) FontWeight.ExtraBold else FontWeight.Bold
+                                    fontWeight = if (conversation.unread) {
+                                        FontWeight.ExtraBold
+                                    } else {
+                                        FontWeight.Bold
+                                    }
                                 )
-                                Text(conversation.time, color = LegnicaMuted, fontSize = 12.sp)
+                                Text(
+                                    conversation.time,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
                             }
                             Text(
                                 conversation.listingTitle,
-                                color = LegnicaCoral,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontSize = 13.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 conversation.lastMessage,
-                                color = LegnicaMuted,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -121,7 +135,7 @@ fun MessagesScreen() {
                             Box(
                                 modifier = Modifier
                                     .size(10.dp)
-                                    .background(LegnicaCoral, CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
                             )
                         }
                     }
