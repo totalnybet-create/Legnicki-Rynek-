@@ -11,7 +11,8 @@ enum class ListingSort : Serializable {
     OLDEST,
     PRICE_ASCENDING,
     PRICE_DESCENDING,
-    TITLE_ASCENDING
+    TITLE_ASCENDING,
+    DISTANCE_FROM_CENTER
 }
 
 data class ListingSearchCriteria(
@@ -20,6 +21,7 @@ data class ListingSearchCriteria(
     val minimumPrice: Int? = null,
     val maximumPrice: Int? = null,
     val location: String = "",
+    val maximumDistanceFromCenterKm: Int? = null,
     val includeUnavailable: Boolean = false,
     val favoritesOnly: Boolean = false,
     val sort: ListingSort = ListingSort.NEWEST
@@ -30,6 +32,7 @@ data class ListingSearchCriteria(
             minimumPrice != null,
             maximumPrice != null,
             location.isNotBlank(),
+            maximumDistanceFromCenterKm != null,
             includeUnavailable,
             favoritesOnly,
             sort != ListingSort.NEWEST
@@ -37,6 +40,9 @@ data class ListingSearchCriteria(
 }
 
 object ListingSearch {
+    const val LEGNICA_CENTER_LATITUDE = 51.2070
+    const val LEGNICA_CENTER_LONGITUDE = 16.1619
+
     fun apply(
         listings: List<Listing>,
         criteria: ListingSearchCriteria
@@ -62,6 +68,10 @@ object ListingSearch {
                 listing.price <= criteria.maximumPrice
             val matchesLocation = normalizedLocation.isBlank() ||
                 listing.location.normalized().contains(normalizedLocation)
+            val matchesDistance = criteria.maximumDistanceFromCenterKm == null ||
+                distanceFromLegnicaCenterKm(listing)?.let {
+                    it <= criteria.maximumDistanceFromCenterKm
+                } == true
             val matchesAvailability = criteria.includeUnavailable ||
                 listing.status == ListingStatus.ACTIVE ||
                 listing.status == ListingStatus.RESERVED
@@ -72,6 +82,7 @@ object ListingSearch {
                 matchesMinimumPrice &&
                 matchesMaximumPrice &&
                 matchesLocation &&
+                matchesDistance &&
                 matchesAvailability &&
                 matchesFavorite
         }
@@ -101,7 +112,26 @@ object ListingSearch {
                 compareBy<Listing> { it.title.normalized() }
                     .thenByDescending { it.createdAt }
             )
+
+            ListingSort.DISTANCE_FROM_CENTER -> filtered.sortedWith(
+                compareBy<Listing> {
+                    distanceFromLegnicaCenterKm(it) ?: Double.MAX_VALUE
+                }.thenByDescending { it.createdAt }
+            )
         }
+    }
+
+    fun distanceFromLegnicaCenterKm(listing: Listing): Double? {
+        val latitude = listing.latitude ?: return null
+        val longitude = listing.longitude ?: return null
+        if (!listing.hasCoordinates) return null
+
+        return GeoDistance.distanceKm(
+            fromLatitude = LEGNICA_CENTER_LATITUDE,
+            fromLongitude = LEGNICA_CENTER_LONGITUDE,
+            toLatitude = latitude,
+            toLongitude = longitude
+        )
     }
 
     private fun String.normalized(): String = Normalizer
