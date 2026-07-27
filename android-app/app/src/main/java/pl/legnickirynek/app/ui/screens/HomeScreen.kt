@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -38,28 +39,52 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import java.text.NumberFormat
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.domain.ListingSearch
 import pl.legnickirynek.app.domain.ListingSearchCriteria
 import pl.legnickirynek.app.model.Listing
 import pl.legnickirynek.app.model.ListingStatus
+import pl.legnickirynek.app.model.LocalEvent
+import pl.legnickirynek.app.model.LocalNewsItem
+import pl.legnickirynek.app.model.WeatherSnapshot
+
+private data class LocalFeedCard(
+    val id: String,
+    val date: String,
+    val title: String,
+    val description: String,
+    val locationOrSource: String,
+    val sourceUrl: String
+)
 
 @Composable
 fun HomeScreen(
     listings: List<Listing>,
+    weather: WeatherSnapshot?,
+    events: List<LocalEvent>,
+    localNews: List<LocalNewsItem>,
+    localDataLoading: Boolean,
+    localDataError: String?,
+    onRefreshLocalData: () -> Unit,
     onOpenCategories: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenListing: (String) -> Unit,
@@ -68,6 +93,8 @@ fun HomeScreen(
     var criteria by rememberSaveable { mutableStateOf(ListingSearchCriteria()) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
     val filteredListings = ListingSearch.apply(listings, criteria)
+    val localFeed = remember(events, localNews) { buildLocalFeed(events, localNews) }
+    val uriHandler = LocalUriHandler.current
 
     LazyColumn(
         modifier = Modifier
@@ -87,7 +114,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Legnicki Rynek",
                             color = MaterialTheme.colorScheme.onSecondary,
@@ -95,9 +122,27 @@ fun HomeScreen(
                             fontWeight = FontWeight.ExtraBold
                         )
                         Text(
-                            text = "Lokalnie i blisko",
-                            color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.74f),
-                            fontSize = 13.sp
+                            text = weather?.let {
+                                "${it.temperatureC.roundToInt()}°C • ${it.description}"
+                            } ?: if (localDataLoading) {
+                                "Pobieranie danych lokalnych…"
+                            } else {
+                                "Lokalnie i blisko"
+                            },
+                            color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.78f),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(
+                        onClick = onRefreshLocalData,
+                        enabled = !localDataLoading
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Odśwież pogodę, wydarzenia i aktualności",
+                            tint = MaterialTheme.colorScheme.onSecondary
                         )
                     }
                     TextButton(onClick = onOpenProfile) {
@@ -238,38 +283,69 @@ fun HomeScreen(
 
         item {
             SectionTitle(title = "Wydarzenia i aktualności")
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(SampleData.events, key = { it.id }) { event ->
-                    Card(
-                        modifier = Modifier.width(292.dp),
-                        shape = RoundedCornerShape(22.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
-                        Column(Modifier.padding(18.dp)) {
-                            Text(
-                                event.date,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.ExtraBold
+            if (!localDataError.isNullOrBlank()) {
+                Text(
+                    text = "Nie udało się odświeżyć części danych. Wyświetlam ostatnie dostępne informacje.",
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 12.sp
+                )
+            }
+            if (localFeed.isEmpty()) {
+                Text(
+                    text = if (localDataLoading) "Pobieranie danych…" else "Brak aktualnych informacji.",
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(localFeed, key = { it.id }) { feedItem ->
+                        Card(
+                            modifier = Modifier
+                                .width(292.dp)
+                                .clickable(enabled = feedItem.sourceUrl.isNotBlank()) {
+                                    runCatching { uriHandler.openUri(feedItem.sourceUrl) }
+                                },
+                            shape = RoundedCornerShape(22.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
                             )
-                            Spacer(Modifier.height(6.dp))
-                            Text(event.title, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(5.dp))
-                            Text(
-                                event.description,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                event.location,
-                                color = MaterialTheme.colorScheme.secondary,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                        ) {
+                            Column(Modifier.padding(18.dp)) {
+                                Text(
+                                    feedItem.date,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    feedItem.title,
+                                    fontSize = 19.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(5.dp))
+                                Text(
+                                    feedItem.description,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    feedItem.locationOrSource,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -323,6 +399,46 @@ fun HomeScreen(
             onDismiss = { showFilters = false }
         )
     }
+}
+
+private fun buildLocalFeed(
+    events: List<LocalEvent>,
+    news: List<LocalNewsItem>
+): List<LocalFeedCard> = buildList {
+    events.take(10).forEach { event ->
+        add(
+            LocalFeedCard(
+                id = "event-${event.id}",
+                date = event.date,
+                title = event.title,
+                description = event.description,
+                locationOrSource = event.location,
+                sourceUrl = event.sourceUrl
+            )
+        )
+    }
+    news.take(8).forEach { item ->
+        add(
+            LocalFeedCard(
+                id = "news-${item.id}",
+                date = formatNewsDate(item.publishedAt),
+                title = item.title,
+                description = item.description.ifBlank {
+                    "Otwórz aktualność, aby przeczytać pełną informację."
+                },
+                locationOrSource = item.sourceName,
+                sourceUrl = item.sourceUrl
+            )
+        )
+    }
+}
+
+private fun formatNewsDate(value: String): String = runCatching {
+    ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME)
+        .withZoneSameInstant(ZoneId.of("Europe/Warsaw"))
+        .format(DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale("pl", "PL")))
+}.getOrElse {
+    value.take(16).ifBlank { "Aktualność" }
 }
 
 @Composable
