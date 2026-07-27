@@ -18,8 +18,10 @@ import pl.legnickirynek.app.data.OfflineMessageRepository
 import pl.legnickirynek.app.data.ProfilePreferencesStore
 import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.data.local.AppDatabase
+import pl.legnickirynek.app.domain.ListingAccessPolicy
 import pl.legnickirynek.app.domain.ListingOperations
 import pl.legnickirynek.app.domain.ListingValidator
+import pl.legnickirynek.app.domain.UserIdentity
 import pl.legnickirynek.app.model.ChatMessage
 import pl.legnickirynek.app.model.Conversation
 import pl.legnickirynek.app.model.Listing
@@ -87,16 +89,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         val currentListings = _uiState.value.listings
         val profile = _uiState.value.profile
-        val sellerName = profile
-            .takeIf { it.loggedIn }
-            ?.name
-            .orEmpty()
-            .ifBlank { listing.sellerName }
-        val ownerId = profile
-            .takeIf { it.loggedIn }
-            ?.let(::profileOwnerId)
-            .orEmpty()
-            .ifBlank { listing.ownerId }
+        val ownerId = ListingAccessPolicy.ownerIdFor(profile)
+        val sellerName = ListingAccessPolicy.sellerNameFor(profile, listing.sellerName)
 
         val newListings = ListingOperations.add(
             listings = currentListings,
@@ -112,8 +106,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateListing(listing: Listing) {
-        if (_uiState.value.listings.none { it.id == listing.id }) {
-            setDataError("Nie znaleziono ogłoszenia do edycji.")
+        val existingListing = _uiState.value.listings.firstOrNull { it.id == listing.id }
+            ?: run {
+                setDataError("Nie znaleziono ogłoszenia do edycji.")
+                return
+            }
+        if (!ListingAccessPolicy.canManage(existingListing, _uiState.value.profile)) {
+            setDataError("Nie masz uprawnień do edycji tego ogłoszenia.")
             return
         }
         if (!validateListing(listing)) return
@@ -135,8 +134,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteListing(id: String) {
-        if (_uiState.value.listings.none { it.id == id }) {
-            setDataError("Nie znaleziono ogłoszenia do usunięcia.")
+        val existingListing = _uiState.value.listings.firstOrNull { it.id == id }
+            ?: run {
+                setDataError("Nie znaleziono ogłoszenia do usunięcia.")
+                return
+            }
+        if (!ListingAccessPolicy.canManage(existingListing, _uiState.value.profile)) {
+            setDataError("Nie masz uprawnień do usunięcia tego ogłoszenia.")
             return
         }
 
@@ -172,8 +176,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateListingStatus(id: String, status: ListingStatus) {
-        if (_uiState.value.listings.none { it.id == id }) {
-            setDataError("Nie znaleziono ogłoszenia.")
+        val existingListing = _uiState.value.listings.firstOrNull { it.id == id }
+            ?: run {
+                setDataError("Nie znaleziono ogłoszenia.")
+                return
+            }
+        if (!ListingAccessPolicy.canManage(existingListing, _uiState.value.profile)) {
+            setDataError("Nie masz uprawnień do zmiany statusu tego ogłoszenia.")
             return
         }
 
@@ -274,12 +283,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun login(name: String, email: String) {
         val cleanEmail = email.trim().lowercase()
         val profile = UserProfile(
-            id = stableId(cleanEmail),
+            id = UserIdentity.fromEmail(cleanEmail),
             name = name.trim(),
             email = cleanEmail,
             loggedIn = true
         )
         applyProfileChange(profile)
+
+        viewModelScope.launch {
+            runCatching {
+                listingRepository.claimLegacyListings(
+                    ownerId = ListingAccessPolicy.ownerIdFor(profile),
+                    sellerName = ListingAccessPolicy.sellerNameFor(profile, "Użytkownik")
+                )
+            }.onFailure { error ->
+                setDataError(error.message ?: "Nie udało się przypisać lokalnych ogłoszeń do konta.")
+            }
+        }
     }
 
     fun logout() {
@@ -325,9 +345,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
         return false
     }
-
-    private fun profileOwnerId(profile: UserProfile): String = profile.id
-        .ifBlank { profile.email.takeIf(String::isNotBlank)?.let(::stableId).orEmpty() }
 
     private fun setDataError(message: String) {
         _uiState.update { it.copy(dataError = message) }
