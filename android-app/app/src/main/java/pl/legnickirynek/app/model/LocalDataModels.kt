@@ -19,3 +19,14 @@ data class LocalNewsItem(
     val sourceName: String,
     val sourceUrl: String
 )
+
+data class GeoPoint(
+    val latitude: Double,
+    val longitude: Double,
+    val displayName: String
+) {
+    init {
+        require(latitude in -90.0..90.0) { "Nieprawidłowa szerokość geograficzna." }
+        require(longitude in -180.0..180.0) { "Nieprawidłowa długość geograficzna." }
+    }
+}
