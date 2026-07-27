@@ -27,8 +27,15 @@ class UrlConnectionTextHttpClient(
             readTimeout = readTimeoutMillis
             instanceFollowRedirects = true
             useCaches = false
-            setRequestProperty("Accept", "application/json, application/rss+xml, application/xml, text/xml, text/plain")
-            setRequestProperty("User-Agent", "LegnickiRynek-Android/0.1")
+            setRequestProperty(
+                "Accept",
+                "application/json, application/rss+xml, application/xml, text/xml, text/plain"
+            )
+            setRequestProperty("Accept-Language", "pl-PL,pl;q=0.9,en;q=0.6")
+            setRequestProperty(
+                "User-Agent",
+                "LegnickiRynek-Android/0.1 (+https://github.com/totalnybet-create/Legnicki-Rynek-)"
+            )
         }
 
         try {
