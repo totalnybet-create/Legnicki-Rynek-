@@ -38,6 +38,7 @@ import pl.legnickirynek.app.ui.screens.EditListingScreen
 import pl.legnickirynek.app.ui.screens.HomeScreen
 import pl.legnickirynek.app.ui.screens.ListingDetailScreen
 import pl.legnickirynek.app.ui.screens.ListingsCollectionScreen
+import pl.legnickirynek.app.ui.screens.LoginRequiredScreen
 import pl.legnickirynek.app.ui.screens.MessagesScreen
 import pl.legnickirynek.app.ui.screens.ProfileScreen
 
@@ -101,6 +102,10 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                 inclusive = true
             }
         }
+    }
+
+    fun openLogin() {
+        navigateTopLevel("profile")
     }
 
     Scaffold(
@@ -171,18 +176,34 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                 )
             }
             composable("add") {
-                AddListingScreen(
-                    onListingCreated = { listing ->
-                        appViewModel.addListing(listing)
-                        openCreatedListing(listing.id)
-                    }
-                )
+                if (uiState.profile.loggedIn) {
+                    AddListingScreen(
+                        onListingCreated = { listing ->
+                            appViewModel.addListing(listing)
+                            openCreatedListing(listing.id)
+                        }
+                    )
+                } else {
+                    LoginRequiredScreen(
+                        title = "Zaloguj się, aby dodać ogłoszenie",
+                        message = "Publikowanie ogłoszeń jest dostępne po zalogowaniu.",
+                        onLogin = ::openLogin
+                    )
+                }
             }
             composable("messages") {
-                MessagesScreen(
-                    conversations = uiState.conversations,
-                    onOpenConversation = ::openConversation
-                )
+                if (uiState.profile.loggedIn) {
+                    MessagesScreen(
+                        conversations = uiState.conversations,
+                        onOpenConversation = ::openConversation
+                    )
+                } else {
+                    LoginRequiredScreen(
+                        title = "Zaloguj się, aby zobaczyć wiadomości",
+                        message = "Rozmowy są prywatne i przypisane do konkretnego konta.",
+                        onLogin = ::openLogin
+                    )
+                }
             }
             composable("profile") {
                 ProfileScreen(
@@ -237,7 +258,7 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                         if (uiState.profile.loggedIn) {
                             navigateTopLevel("add")
                         } else {
-                            navigateTopLevel("profile")
+                            openLogin()
                         }
                     },
                     emptyActionLabel = if (uiState.profile.loggedIn) {
@@ -269,8 +290,7 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                     },
                     onMessageSeller = {
                         listing?.let { currentListing ->
-                            val conversationId = appViewModel.ensureConversation(currentListing)
-                            openConversation(conversationId)
+                            appViewModel.ensureConversation(currentListing)?.let(::openConversation)
                         }
                     }
                 )
@@ -304,37 +324,45 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                 }
             }
             composable("conversation/{conversationId}") { entry ->
-                val conversationId = entry.arguments?.getString("conversationId").orEmpty()
-                val conversationFlow = remember(conversationId) {
-                    appViewModel.observeConversation(conversationId)
-                }
-                val messagesFlow = remember(conversationId) {
-                    appViewModel.observeMessages(conversationId)
-                }
-                val conversation by conversationFlow.collectAsStateWithLifecycle(
-                    initialValue = uiState.conversations.firstOrNull { it.id == conversationId }
-                )
-                val messages by messagesFlow.collectAsStateWithLifecycle(
-                    initialValue = emptyList()
-                )
-
-                LaunchedEffect(conversationId) {
-                    appViewModel.markConversationRead(conversationId)
-                }
-
-                ConversationScreen(
-                    conversation = conversation,
-                    messages = messages,
-                    onBack = { navController.popBackStack() },
-                    onOpenListing = ::openListing,
-                    onSendMessage = { body ->
-                        appViewModel.sendMessage(conversationId, body)
-                    },
-                    onDeleteConversation = {
-                        appViewModel.deleteConversation(conversationId)
-                        navController.popBackStack()
+                if (!uiState.profile.loggedIn) {
+                    LoginRequiredScreen(
+                        title = "Zaloguj się, aby otworzyć rozmowę",
+                        message = "Treść rozmowy jest dostępna wyłącznie dla właściciela konta.",
+                        onLogin = ::openLogin
+                    )
+                } else {
+                    val conversationId = entry.arguments?.getString("conversationId").orEmpty()
+                    val conversationFlow = remember(conversationId) {
+                        appViewModel.observeConversation(conversationId)
                     }
-                )
+                    val messagesFlow = remember(conversationId) {
+                        appViewModel.observeMessages(conversationId)
+                    }
+                    val conversation by conversationFlow.collectAsStateWithLifecycle(
+                        initialValue = uiState.conversations.firstOrNull { it.id == conversationId }
+                    )
+                    val messages by messagesFlow.collectAsStateWithLifecycle(
+                        initialValue = emptyList()
+                    )
+
+                    LaunchedEffect(conversationId) {
+                        appViewModel.markConversationRead(conversationId)
+                    }
+
+                    ConversationScreen(
+                        conversation = conversation,
+                        messages = messages,
+                        onBack = { navController.popBackStack() },
+                        onOpenListing = ::openListing,
+                        onSendMessage = { body ->
+                            appViewModel.sendMessage(conversationId, body)
+                        },
+                        onDeleteConversation = {
+                            appViewModel.deleteConversation(conversationId)
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
         }
     }
