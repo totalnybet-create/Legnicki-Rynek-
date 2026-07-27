@@ -34,6 +34,7 @@ import pl.legnickirynek.app.model.Listing
 @Composable
 fun CategoriesScreen(
     listings: List<Listing>,
+    onOpenListing: (String) -> Unit,
     onToggleFavorite: (String) -> Unit
 ) {
     var selectedCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -183,6 +184,7 @@ fun CategoriesScreen(
             items(visibleListings, key = { it.id }) { listing ->
                 ListingCard(
                     listing = listing,
+                    onOpen = { onOpenListing(listing.id) },
                     onToggleFavorite = { onToggleFavorite(listing.id) }
                 )
             }
