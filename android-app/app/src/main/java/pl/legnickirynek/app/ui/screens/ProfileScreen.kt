@@ -27,16 +27,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import pl.legnickirynek.app.model.UserProfile
 import pl.legnickirynek.app.ui.theme.LegnicaBackground
 import pl.legnickirynek.app.ui.theme.LegnicaCoral
 import pl.legnickirynek.app.ui.theme.LegnicaMuted
 import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
 @Composable
-fun ProfileScreen() {
-    var name by rememberSaveable { mutableStateOf("") }
-    var email by rememberSaveable { mutableStateOf("") }
-    var loggedIn by rememberSaveable { mutableStateOf(false) }
+fun ProfileScreen(
+    profile: UserProfile,
+    listingCount: Int,
+    favoriteCount: Int,
+    onLogin: (name: String, email: String) -> Unit,
+    onLogout: () -> Unit
+) {
+    var name by rememberSaveable(profile.name) { mutableStateOf(profile.name) }
+    var email by rememberSaveable(profile.email) { mutableStateOf(profile.email) }
     var message by rememberSaveable { mutableStateOf("") }
 
     LazyColumn(
@@ -73,14 +79,14 @@ fun ProfileScreen() {
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    if (loggedIn) {
-                        Text("Witaj, $name", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(email, color = LegnicaMuted)
-                        Text("Moje ogłoszenia: 0", fontWeight = FontWeight.SemiBold)
-                        Text("Ulubione: dostępne na ekranie głównym", color = LegnicaMuted)
+                    if (profile.loggedIn) {
+                        Text("Witaj, ${profile.name}", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(profile.email, color = LegnicaMuted)
+                        Text("Moje ogłoszenia: $listingCount", fontWeight = FontWeight.SemiBold)
+                        Text("Ulubione: $favoriteCount", color = LegnicaMuted)
                         Button(
                             onClick = {
-                                loggedIn = false
+                                onLogout()
                                 message = "Wylogowano."
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -92,7 +98,7 @@ fun ProfileScreen() {
                     } else {
                         Text("Zaloguj się", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
                         Text(
-                            "Logowanie jest na razie lokalną wersją demonstracyjną.",
+                            "Dane konta są zapisywane lokalnie w telefonie.",
                             color = LegnicaMuted
                         )
                         OutlinedTextField(
@@ -113,14 +119,14 @@ fun ProfileScreen() {
                         )
                         Button(
                             onClick = {
-                                if (name.trim().length < 2) {
+                                val cleanName = name.trim()
+                                val cleanEmail = email.trim()
+                                if (cleanName.length < 2) {
                                     message = "Podaj imię."
-                                } else if (!email.contains("@") || !email.contains(".")) {
+                                } else if (!cleanEmail.contains("@") || !cleanEmail.contains(".")) {
                                     message = "Podaj prawidłowy adres e-mail."
                                 } else {
-                                    name = name.trim()
-                                    email = email.trim()
-                                    loggedIn = true
+                                    onLogin(cleanName, cleanEmail)
                                     message = "Zalogowano."
                                 }
                             },
