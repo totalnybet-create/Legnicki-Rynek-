@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - android-architecture-v2
     paths:
       - "android-app/**"
       - ".github/workflows/android-build.yml"
