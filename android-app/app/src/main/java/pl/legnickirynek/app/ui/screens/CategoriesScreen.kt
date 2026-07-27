@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,20 +25,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.model.Listing
-import pl.legnickirynek.app.ui.theme.LegnicaBackground
-import pl.legnickirynek.app.ui.theme.LegnicaCoral
-import pl.legnickirynek.app.ui.theme.LegnicaMuted
-import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
 @Composable
 fun CategoriesScreen(
     listings: List<Listing>,
+    onOpenListing: (String) -> Unit,
     onToggleFavorite: (String) -> Unit
 ) {
     var selectedCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -48,21 +45,26 @@ fun CategoriesScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(LegnicaBackground),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 28.dp)
     ) {
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(LegnicaNavy)
+                    .background(MaterialTheme.colorScheme.secondary)
                     .padding(20.dp)
             ) {
-                Text("Kategorie", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Kategorie",
+                    color = MaterialTheme.colorScheme.onSecondary,
+                    fontSize = 27.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
                 Spacer(Modifier.height(5.dp))
                 Text(
                     "Wybierz kategorię i zobacz lokalne oferty.",
-                    color = Color.White.copy(alpha = 0.74f)
+                    color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.74f)
                 )
             }
         }
@@ -72,13 +74,18 @@ fun CategoriesScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                val allSelected = selectedCategoryId == null
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { selectedCategoryId = null },
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (selectedCategoryId == null) LegnicaCoral else Color.White
+                        containerColor = if (allSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        }
                     )
                 ) {
                     Row(
@@ -90,11 +97,19 @@ fun CategoriesScreen(
                             Text(
                                 "Wszystkie kategorie",
                                 fontWeight = FontWeight.Bold,
-                                color = if (selectedCategoryId == null) Color.White else Color.Unspecified
+                                color = if (allSelected) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
                             )
                             Text(
                                 "${listings.size} ogłoszeń",
-                                color = if (selectedCategoryId == null) Color.White.copy(alpha = 0.78f) else LegnicaMuted
+                                color = if (allSelected) {
+                                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
                             )
                         }
                     }
@@ -109,7 +124,11 @@ fun CategoriesScreen(
                             .clickable { selectedCategoryId = category.id },
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (selected) LegnicaNavy else Color.White
+                            containerColor = if (selected) {
+                                MaterialTheme.colorScheme.secondary
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            }
                         )
                     ) {
                         Row(
@@ -121,11 +140,19 @@ fun CategoriesScreen(
                                 Text(
                                     category.name,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (selected) Color.White else Color.Unspecified
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.onSecondary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    }
                                 )
                                 Text(
                                     "$count ogłoszeń",
-                                    color = if (selected) Color.White.copy(alpha = 0.72f) else LegnicaMuted
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.76f)
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
                                 )
                             }
                         }
@@ -150,13 +177,14 @@ fun CategoriesScreen(
                 Text(
                     "Brak ogłoszeń w tej kategorii.",
                     modifier = Modifier.padding(20.dp),
-                    color = LegnicaMuted
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
             items(visibleListings, key = { it.id }) { listing ->
                 ListingCard(
                     listing = listing,
+                    onOpen = { onOpenListing(listing.id) },
                     onToggleFavorite = { onToggleFavorite(listing.id) }
                 )
             }
