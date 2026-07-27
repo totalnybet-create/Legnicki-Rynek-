@@ -13,9 +13,13 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,9 +54,17 @@ private val destinations = listOf(
 fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
     val uiState by appViewModel.uiState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
+    val snackbarHostState = remember { SnackbarHostState() }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: "home"
     val showBottomBar = destinations.any { it.route == currentRoute }
+
+    LaunchedEffect(uiState.dataError) {
+        uiState.dataError?.let { error ->
+            snackbarHostState.showSnackbar(error)
+            appViewModel.clearDataError()
+        }
+    }
 
     fun navigateTopLevel(route: String) {
         navController.navigate(route) {
@@ -81,6 +93,7 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
