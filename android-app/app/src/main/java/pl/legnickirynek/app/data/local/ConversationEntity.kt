@@ -8,12 +8,15 @@ import pl.legnickirynek.app.model.Conversation
 @Entity(
     tableName = "conversations",
     indices = [
+        Index(value = ["accountId"]),
         Index(value = ["listingId"]),
-        Index(value = ["updatedAt"])
+        Index(value = ["updatedAt"]),
+        Index(value = ["accountId", "updatedAt"])
     ]
 )
 data class ConversationEntity(
     @PrimaryKey val id: String,
+    val accountId: String,
     val person: String,
     val listingId: String?,
     val listingTitle: String,
@@ -24,6 +27,7 @@ data class ConversationEntity(
 
 fun ConversationEntity.toModel(): Conversation = Conversation(
     id = id,
+    accountId = accountId,
     person = person,
     listingId = listingId,
     listingTitle = listingTitle,
@@ -34,6 +38,7 @@ fun ConversationEntity.toModel(): Conversation = Conversation(
 
 fun Conversation.toEntity(): ConversationEntity = ConversationEntity(
     id = id,
+    accountId = accountId,
     person = person,
     listingId = listingId,
     listingTitle = listingTitle,
