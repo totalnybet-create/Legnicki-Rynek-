@@ -1,24 +1,33 @@
 package pl.legnickirynek.app.data.local
 
 import androidx.room.TypeConverter
-import org.json.JSONArray
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 import pl.legnickirynek.app.model.ListingStatus
 
 class ListingConverters {
     @TypeConverter
-    fun imageUrisToJson(imageUris: List<String>): String = JSONArray(imageUris).toString()
+    fun imageUrisToStorage(imageUris: List<String>): String = imageUris.joinToString(".") { uri ->
+        Base64.getUrlEncoder()
+            .withoutPadding()
+            .encodeToString(uri.toByteArray(StandardCharsets.UTF_8))
+    }
 
     @TypeConverter
-    fun jsonToImageUris(raw: String): List<String> = runCatching {
-        val array = JSONArray(raw)
-        buildList {
-            for (index in 0 until array.length()) {
-                array.optString(index)
-                    .takeIf(String::isNotBlank)
-                    ?.let(::add)
+    fun storageToImageUris(raw: String): List<String> {
+        if (raw.isBlank()) return emptyList()
+
+        return raw.split('.')
+            .mapNotNull { encoded ->
+                runCatching {
+                    String(
+                        Base64.getUrlDecoder().decode(encoded),
+                        StandardCharsets.UTF_8
+                    )
+                }.getOrNull()
             }
-        }
-    }.getOrDefault(emptyList())
+            .filter(String::isNotBlank)
+    }
 
     @TypeConverter
     fun statusToString(status: ListingStatus): String = status.name
