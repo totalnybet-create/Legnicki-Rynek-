@@ -13,13 +13,21 @@ private val Context.listingSyncDataStore: DataStore<Preferences> by preferencesD
     name = "listing_sync_preferences"
 )
 
-class ListingSyncStore(context: Context) {
+interface ListingSyncStateStore {
+    suspend fun pendingDeletionIds(): Set<String>
+    suspend fun addPendingDeletion(id: String)
+    suspend fun removePendingDeletion(id: String)
+    suspend fun markSuccessfulSync(timestamp: Long = System.currentTimeMillis())
+    suspend fun lastSuccessfulSync(): Long
+}
+
+class ListingSyncStore(context: Context) : ListingSyncStateStore {
     private val dataStore = context.applicationContext.listingSyncDataStore
 
-    suspend fun pendingDeletionIds(): Set<String> =
+    override suspend fun pendingDeletionIds(): Set<String> =
         dataStore.data.first()[PENDING_DELETION_IDS].orEmpty()
 
-    suspend fun addPendingDeletion(id: String) {
+    override suspend fun addPendingDeletion(id: String) {
         require(id.isNotBlank()) { "Identyfikator usuwanego ogłoszenia nie może być pusty." }
         dataStore.edit { preferences ->
             preferences[PENDING_DELETION_IDS] =
@@ -27,20 +35,20 @@ class ListingSyncStore(context: Context) {
         }
     }
 
-    suspend fun removePendingDeletion(id: String) {
+    override suspend fun removePendingDeletion(id: String) {
         dataStore.edit { preferences ->
             preferences[PENDING_DELETION_IDS] =
                 preferences[PENDING_DELETION_IDS].orEmpty() - id
         }
     }
 
-    suspend fun markSuccessfulSync(timestamp: Long = System.currentTimeMillis()) {
+    override suspend fun markSuccessfulSync(timestamp: Long) {
         dataStore.edit { preferences ->
             preferences[LAST_SUCCESSFUL_SYNC] = timestamp.coerceAtLeast(0L)
         }
     }
 
-    suspend fun lastSuccessfulSync(): Long =
+    override suspend fun lastSuccessfulSync(): Long =
         dataStore.data.first()[LAST_SUCCESSFUL_SYNC] ?: 0L
 
     private companion object {
