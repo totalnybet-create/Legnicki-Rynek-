@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.map
 import pl.legnickirynek.app.data.local.ListingDao
 import pl.legnickirynek.app.data.local.toEntity
 import pl.legnickirynek.app.data.local.toModel
+import pl.legnickirynek.app.domain.ListingValidator
 import pl.legnickirynek.app.model.Listing
 
 interface ListingRepository {
@@ -27,18 +28,23 @@ class OfflineListingRepository(
         listingDao.observeById(id).map { it?.toModel() }
 
     override suspend fun upsert(listing: Listing) {
-        listingDao.upsert(listing.toEntity())
+        listingDao.upsert(ListingValidator.requireValid(listing).toEntity())
     }
 
     override suspend fun upsertAll(listings: List<Listing>) {
-        listingDao.upsertAll(listings.map { it.toEntity() })
+        listingDao.upsertAll(
+            listings.map { ListingValidator.requireValid(it).toEntity() }
+        )
     }
 
     override suspend fun delete(id: String) {
+        require(id.isNotBlank()) { "Identyfikator ogłoszenia nie może być pusty." }
         listingDao.deleteById(id)
     }
 
     override suspend fun claimLegacyListings(ownerId: String, sellerName: String) {
+        require(ownerId.isNotBlank()) { "Identyfikator właściciela nie może być pusty." }
+        require(sellerName.isNotBlank()) { "Nazwa sprzedającego nie może być pusta." }
         listingDao.claimLegacyListings(ownerId, sellerName)
     }
 
