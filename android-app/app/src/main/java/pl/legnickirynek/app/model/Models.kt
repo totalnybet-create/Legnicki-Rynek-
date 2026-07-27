@@ -26,8 +26,14 @@ data class Listing(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,
     val status: ListingStatus = ListingStatus.ACTIVE,
-    val isFavorite: Boolean = false
-)
+    val isFavorite: Boolean = false,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+) {
+    val hasCoordinates: Boolean
+        get() = latitude != null && longitude != null &&
+            latitude in -90.0..90.0 && longitude in -180.0..180.0
+}
 
 data class LocalEvent(
     val id: String,
