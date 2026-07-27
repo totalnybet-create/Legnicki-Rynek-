@@ -32,6 +32,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.legnickirynek.app.data.SampleData
+import pl.legnickirynek.app.domain.ListingValidationError
+import pl.legnickirynek.app.domain.ListingValidator
 import pl.legnickirynek.app.model.Listing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -148,29 +150,36 @@ fun AddListingScreen(onListingCreated: (Listing) -> Unit) {
 
                 Button(
                     onClick = {
-                        val numericPrice = price.toIntOrNull()
-                        when {
-                            title.trim().length < 4 -> {
+                        when (
+                            ListingValidator.validate(
+                                title = title,
+                                price = price,
+                                location = location,
+                                description = description
+                            )
+                        ) {
+                            ListingValidationError.TITLE_TOO_SHORT -> {
                                 message = "Tytuł musi mieć co najmniej 4 znaki."
                                 messageIsError = true
                             }
 
-                            numericPrice == null || numericPrice < 0 -> {
+                            ListingValidationError.PRICE_INVALID -> {
                                 message = "Podaj prawidłową cenę."
                                 messageIsError = true
                             }
 
-                            location.isBlank() -> {
+                            ListingValidationError.LOCATION_REQUIRED -> {
                                 message = "Podaj lokalizację."
                                 messageIsError = true
                             }
 
-                            description.trim().length < 10 -> {
+                            ListingValidationError.DESCRIPTION_TOO_SHORT -> {
                                 message = "Opis musi mieć co najmniej 10 znaków."
                                 messageIsError = true
                             }
 
-                            else -> {
+                            null -> {
+                                val numericPrice = requireNotNull(price.toIntOrNull())
                                 onListingCreated(
                                     Listing(
                                         id = "listing-${System.currentTimeMillis()}",
