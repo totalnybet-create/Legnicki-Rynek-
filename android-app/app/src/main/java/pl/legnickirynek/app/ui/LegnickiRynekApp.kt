@@ -16,21 +16,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import pl.legnickirynek.app.data.LocalStore
-import pl.legnickirynek.app.data.SampleData
-import pl.legnickirynek.app.model.Listing
-import pl.legnickirynek.app.model.UserProfile
 import pl.legnickirynek.app.ui.screens.AddListingScreen
 import pl.legnickirynek.app.ui.screens.CategoriesScreen
 import pl.legnickirynek.app.ui.screens.HomeScreen
@@ -52,32 +45,11 @@ private val destinations = listOf(
 )
 
 @Composable
-fun LegnickiRynekApp() {
-    val context = LocalContext.current.applicationContext
+fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
+    val uiState by appViewModel.uiState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
-    val listings = remember(context) {
-        val savedListings = LocalStore.loadListings(context)
-        mutableStateListOf<Listing>().apply {
-            addAll(savedListings.ifEmpty { SampleData.listings })
-        }
-    }
-    var profile by remember(context) {
-        mutableStateOf(LocalStore.loadProfile(context))
-    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: "home"
-
-    fun persistListings() {
-        LocalStore.saveListings(context, listings)
-    }
-
-    fun toggleFavorite(id: String) {
-        val index = listings.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            listings[index] = listings[index].copy(isFavorite = !listings[index].isFavorite)
-            persistListings()
-        }
-    }
 
     fun navigate(route: String) {
         navController.navigate(route) {
@@ -124,23 +96,22 @@ fun LegnickiRynekApp() {
         ) {
             composable("home") {
                 HomeScreen(
-                    listings = listings,
+                    listings = uiState.listings,
                     onOpenCategories = { navigate("categories") },
                     onOpenProfile = { navigate("profile") },
-                    onToggleFavorite = ::toggleFavorite
+                    onToggleFavorite = appViewModel::toggleFavorite
                 )
             }
             composable("categories") {
                 CategoriesScreen(
-                    listings = listings,
-                    onToggleFavorite = ::toggleFavorite
+                    listings = uiState.listings,
+                    onToggleFavorite = appViewModel::toggleFavorite
                 )
             }
             composable("add") {
                 AddListingScreen(
                     onListingCreated = { listing ->
-                        listings.add(0, listing)
-                        persistListings()
+                        appViewModel.addListing(listing)
                         navigate("home")
                     }
                 )
@@ -150,17 +121,13 @@ fun LegnickiRynekApp() {
             }
             composable("profile") {
                 ProfileScreen(
-                    profile = profile,
-                    listingCount = listings.count { it.id.startsWith("listing-") },
-                    favoriteCount = listings.count { it.isFavorite },
-                    onLogin = { name, email ->
-                        profile = UserProfile(name = name, email = email, loggedIn = true)
-                        LocalStore.saveProfile(context, profile)
+                    profile = uiState.profile,
+                    listingCount = uiState.listings.count {
+                        it.sellerName == uiState.profile.name && uiState.profile.loggedIn
                     },
-                    onLogout = {
-                        profile = UserProfile()
-                        LocalStore.saveProfile(context, profile)
-                    }
+                    favoriteCount = uiState.listings.count { it.isFavorite },
+                    onLogin = appViewModel::login,
+                    onLogout = appViewModel::logout
                 )
             }
         }
