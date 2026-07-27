@@ -19,14 +19,24 @@ interface RemoteListingService {
     suspend fun deleteListing(id: String)
 }
 
+interface RemoteMediaService {
+    val isConfigured: Boolean
+    suspend fun uploadImage(
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray
+    ): String
+}
+
 class RestRemoteListingService(
     baseUrl: String,
     private val bearerToken: String,
     private val httpClient: JsonHttpClient,
+    private val multipartHttpClient: MultipartHttpClient = MultipartHttpClient(),
     private val gson: Gson = GsonBuilder()
         .setStrictness(Strictness.STRICT)
         .create()
-) : RemoteListingService {
+) : RemoteListingService, RemoteMediaService {
     private val normalizedBaseUrl = baseUrl.trim().trimEnd('/')
 
     override val isConfigured: Boolean = isAllowedBaseUrl(normalizedBaseUrl)
@@ -59,6 +69,25 @@ class RestRemoteListingService(
             url = "$normalizedBaseUrl/listings/${encodePathSegment(id)}",
             bearerToken = bearerToken
         )
+    }
+
+    override suspend fun uploadImage(
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray
+    ): String {
+        checkConfigured()
+        val response = multipartHttpClient.upload(
+            url = "$normalizedBaseUrl/uploads",
+            file = MultipartFile(
+                fieldName = "file",
+                fileName = fileName,
+                mimeType = mimeType,
+                bytes = bytes
+            ),
+            bearerToken = bearerToken
+        )
+        return ListingJsonCodec.decodeUploadedImageUrl(response.body)
     }
 
     private fun checkConfigured() {
@@ -100,6 +129,22 @@ object ListingJsonCodec {
         return array.mapNotNull { element ->
             runCatching { decodeListing(element.asJsonObject) }.getOrNull()
         }.distinctBy(Listing::id)
+    }
+
+    fun decodeUploadedImageUrl(json: String): String {
+        val root = JsonParser.parseString(json)
+        val url = root
+            .takeIf { it.isJsonObject }
+            ?.asJsonObject
+            ?.get("url")
+            ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }
+            ?.asString
+            ?.trim()
+            .orEmpty()
+        require(isRemoteImageUrl(url)) {
+            "Odpowiedź uploadu nie zawiera prawidłowego adresu zdjęcia."
+        }
+        return url
     }
 
     fun encode(listing: Listing, gson: Gson = Gson()): String {
