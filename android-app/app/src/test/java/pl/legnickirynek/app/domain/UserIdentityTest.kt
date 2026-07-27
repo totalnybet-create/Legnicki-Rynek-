@@ -25,4 +25,14 @@ class UserIdentityTest {
     fun `pusty email nie tworzy identyfikatora`() {
         assertEquals("", UserIdentity.fromEmail("   "))
     }
+
+    @Test
+    fun `adres bez domeny nie tworzy identyfikatora`() {
+        assertEquals("", UserIdentity.fromEmail("jan@localhost"))
+    }
+
+    @Test
+    fun `tekst bez znaku małpy nie tworzy identyfikatora`() {
+        assertEquals("", UserIdentity.fromEmail("jan.example.pl"))
+    }
 }
