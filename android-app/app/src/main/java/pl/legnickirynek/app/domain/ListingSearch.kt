@@ -8,8 +8,10 @@ import pl.legnickirynek.app.model.ListingStatus
 
 enum class ListingSort : Serializable {
     NEWEST,
+    OLDEST,
     PRICE_ASCENDING,
-    PRICE_DESCENDING
+    PRICE_DESCENDING,
+    TITLE_ASCENDING
 }
 
 data class ListingSearchCriteria(
@@ -19,6 +21,7 @@ data class ListingSearchCriteria(
     val maximumPrice: Int? = null,
     val location: String = "",
     val includeUnavailable: Boolean = false,
+    val favoritesOnly: Boolean = false,
     val sort: ListingSort = ListingSort.NEWEST
 ) : Serializable {
     val activeFilterCount: Int
@@ -28,6 +31,7 @@ data class ListingSearchCriteria(
             maximumPrice != null,
             location.isNotBlank(),
             includeUnavailable,
+            favoritesOnly,
             sort != ListingSort.NEWEST
         ).count { it }
 }
@@ -61,19 +65,26 @@ object ListingSearch {
             val matchesAvailability = criteria.includeUnavailable ||
                 listing.status == ListingStatus.ACTIVE ||
                 listing.status == ListingStatus.RESERVED
+            val matchesFavorite = !criteria.favoritesOnly || listing.isFavorite
 
             matchesQuery &&
                 matchesCategory &&
                 matchesMinimumPrice &&
                 matchesMaximumPrice &&
                 matchesLocation &&
-                matchesAvailability
+                matchesAvailability &&
+                matchesFavorite
         }
 
         return when (criteria.sort) {
             ListingSort.NEWEST -> filtered.sortedWith(
                 compareByDescending<Listing> { it.createdAt }
                     .thenByDescending { it.updatedAt }
+            )
+
+            ListingSort.OLDEST -> filtered.sortedWith(
+                compareBy<Listing> { it.createdAt }
+                    .thenBy { it.updatedAt }
             )
 
             ListingSort.PRICE_ASCENDING -> filtered.sortedWith(
@@ -83,6 +94,11 @@ object ListingSearch {
 
             ListingSort.PRICE_DESCENDING -> filtered.sortedWith(
                 compareByDescending<Listing> { it.price }
+                    .thenByDescending { it.createdAt }
+            )
+
+            ListingSort.TITLE_ASCENDING -> filtered.sortedWith(
+                compareBy<Listing> { it.title.normalized() }
                     .thenByDescending { it.createdAt }
             )
         }
