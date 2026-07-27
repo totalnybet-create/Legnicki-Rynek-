@@ -168,7 +168,7 @@ fun AddListingScreen(onListingCreated: (Listing) -> Unit) {
                 }
 
                 Text(
-                    "Na tym etapie dane są przechowywane w pamięci aplikacji. Po podłączeniu API publikacja trafi również na stronę internetową.",
+                    "Ogłoszenie jest zapisywane w lokalnej bazie danych telefonu. Po podłączeniu API będzie również synchronizowane ze stroną internetową.",
                     color = LegnicaMuted,
                     fontSize = 13.sp
                 )
