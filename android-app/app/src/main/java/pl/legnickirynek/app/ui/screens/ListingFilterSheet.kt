@@ -149,8 +149,10 @@ fun ListingFilterSheet(
                             Text(
                                 when (option) {
                                     ListingSort.NEWEST -> "Najnowsze"
+                                    ListingSort.OLDEST -> "Najstarsze"
                                     ListingSort.PRICE_ASCENDING -> "Cena rosnąco"
                                     ListingSort.PRICE_DESCENDING -> "Cena malejąco"
+                                    ListingSort.TITLE_ASCENDING -> "Nazwa A–Z"
                                 }
                             )
                         }
