@@ -39,6 +39,7 @@ data class LocalEvent(
 
 data class Conversation(
     val id: String,
+    val accountId: String = "",
     val person: String,
     val listingId: String?,
     val listingTitle: String,
