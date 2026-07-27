@@ -9,6 +9,7 @@ import com.google.gson.Strictness
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import pl.legnickirynek.app.AppServices
 import pl.legnickirynek.app.model.Listing
 import pl.legnickirynek.app.model.ListingStatus
 
@@ -32,7 +33,9 @@ class RestRemoteListingService(
     baseUrl: String,
     private val bearerToken: String = "",
     private val httpClient: JsonHttpClient,
-    private val bearerTokenProvider: suspend () -> String = { bearerToken },
+    private val bearerTokenProvider: suspend () -> String = {
+        AppServices.currentAccessToken()
+    },
     private val multipartHttpClient: MultipartHttpClient = MultipartHttpClient(),
     private val gson: Gson = GsonBuilder()
         .setStrictness(Strictness.STRICT)
