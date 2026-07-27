@@ -22,6 +22,12 @@ interface ListingDao {
     @Query("DELETE FROM listings WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    @Query(
+        "UPDATE listings SET ownerId = :ownerId, sellerName = :sellerName " +
+            "WHERE ownerId = '' AND id LIKE 'listing-%'"
+    )
+    suspend fun claimLegacyListings(ownerId: String, sellerName: String)
+
     @Query("SELECT COUNT(*) FROM listings")
     suspend fun count(): Int
 }
