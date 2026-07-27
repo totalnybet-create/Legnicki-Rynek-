@@ -58,6 +58,25 @@ class ListingSearchTest {
     }
 
     @Test
+    fun `granice cen są włączone do wyników`() {
+        val listings = listOf(
+            listing(id = "1", price = 100),
+            listing(id = "2", price = 200),
+            listing(id = "3", price = 201)
+        )
+
+        val result = ListingSearch.apply(
+            listings,
+            ListingSearchCriteria(
+                minimumPrice = 100,
+                maximumPrice = 200
+            )
+        )
+
+        assertEquals(setOf("1", "2"), result.map { it.id }.toSet())
+    }
+
+    @Test
     fun `sprzedane i wygasłe oferty są domyślnie ukryte`() {
         val listings = listOf(
             listing(id = "1", status = ListingStatus.ACTIVE),
@@ -95,6 +114,21 @@ class ListingSearchTest {
 
         assertEquals(listOf("2", "1", "3"), ascending.map { it.id })
         assertEquals(listOf("3", "1", "2"), descending.map { it.id })
+    }
+
+    @Test
+    fun `licznik obejmuje tylko aktywne filtry poza tekstem wyszukiwania`() {
+        val criteria = ListingSearchCriteria(
+            query = "rower",
+            categoryId = "sport",
+            minimumPrice = 100,
+            maximumPrice = 2000,
+            location = "Legnica",
+            includeUnavailable = true,
+            sort = ListingSort.PRICE_ASCENDING
+        )
+
+        assertEquals(6, criteria.activeFilterCount)
     }
 
     private fun listing(
