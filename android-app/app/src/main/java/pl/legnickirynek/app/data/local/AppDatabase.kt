@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ConversationEntity::class,
         MessageEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(ListingConverters::class)
@@ -86,6 +86,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE conversations " +
+                        "ADD COLUMN accountId TEXT NOT NULL DEFAULT ''"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_conversations_accountId " +
+                        "ON conversations(accountId)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_conversations_accountId_updatedAt " +
+                        "ON conversations(accountId, updatedAt)"
+                )
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -96,7 +113,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "legnicki_rynek.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }
