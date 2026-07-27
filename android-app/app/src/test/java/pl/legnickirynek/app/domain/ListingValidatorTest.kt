@@ -1,7 +1,9 @@
 package pl.legnickirynek.app.domain
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import pl.legnickirynek.app.model.Listing
 
@@ -51,6 +53,22 @@ class ListingValidatorTest {
 
         assertFalse(result.isValid)
         assertTrue(result.errors.containsKey("imageUris"))
+    }
+
+    @Test
+    fun requireValidThrowsExceptionWithFieldErrors() {
+        val invalidListing = validListing(imageUris = listOf("invalid-uri"))
+
+        try {
+            ListingValidator.requireValid(invalidListing)
+            fail("Oczekiwano ListingValidationException")
+        } catch (error: ListingValidationException) {
+            assertTrue(error.fieldErrors.containsKey("imageUris"))
+            assertEquals(
+                error.fieldErrors.values.first(),
+                error.message
+            )
+        }
     }
 
     @Test
