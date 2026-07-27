@@ -51,7 +51,7 @@ class RssContentParser @Inject constructor() {
                         sourceName = source.name,
                         sourceUrl = source.url,
                         articleUrl = articleUrl,
-                        imageUrl = imageUrl?.takeIf(String::isSafeWebUrl),
+                        imageUrl = imageUrl?.takeIf { it.isSafeWebUrl() },
                         publishedAt = publicationDate,
                         eventDate = null
                     )
