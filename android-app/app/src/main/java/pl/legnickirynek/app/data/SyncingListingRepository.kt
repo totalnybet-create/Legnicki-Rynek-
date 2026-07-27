@@ -9,7 +9,7 @@ import pl.legnickirynek.app.model.Listing
 class SyncingListingRepository(
     private val localRepository: ListingRepository,
     private val remoteService: RemoteListingService,
-    private val syncStore: ListingSyncStore
+    private val syncStore: ListingSyncStateStore
 ) : ListingRepository {
     private val syncMutex = Mutex()
 
