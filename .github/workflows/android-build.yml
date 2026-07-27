@@ -19,6 +19,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      LISTINGS_API_BASE_URL: ${{ secrets.LISTINGS_API_BASE_URL }}
+      LISTINGS_API_TOKEN: ${{ secrets.LISTINGS_API_TOKEN }}
 
     steps:
       - name: Pobierz repozytorium
