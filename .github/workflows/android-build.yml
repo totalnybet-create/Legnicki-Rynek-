@@ -43,7 +43,7 @@ jobs:
           set -o pipefail
           gradle -p android-app clean testDebugUnitTest lintDebug assembleDebug --stacktrace 2>&1 | tee android-build.log
 
-      - name: Zapisz raporty i log kompilacji
+      - name: Zapisz raporty, log i schematy Room
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -51,6 +51,7 @@ jobs:
           path: |
             android-build.log
             android-app/app/build/reports/**
+            android-app/app/schemas/**
           if-no-files-found: warn
 
       - name: Zapisz APK jako artefakt
