@@ -56,6 +56,33 @@ class SyncingListingRepositoryTest {
     }
 
     @Test
+    fun `opublikowane zdjęcie trafia do lokalnej bazy i api`() = runBlocking {
+        val localListing = listing(
+            updatedAt = 300,
+            imageUris = listOf("content://gallery/1")
+        )
+        val local = FakeListingRepository(listOf(localListing))
+        val remote = FakeRemoteListingService(emptyList())
+        val publisher = FakeImagePublisher(
+            publishedUrl = "https://cdn.example.pl/listings/published.jpg"
+        )
+        val repository = SyncingListingRepository(
+            localRepository = local,
+            remoteService = remote,
+            syncStore = FakeSyncStore(),
+            imagePublisher = publisher
+        )
+
+        val report = repository.synchronize()
+        val expectedImages = listOf("https://cdn.example.pl/listings/published.jpg")
+
+        assertEquals(1, report.pushed)
+        assertEquals(expectedImages, local.getAll().single().imageUris)
+        assertEquals(expectedImages, remote.listings.single().imageUris)
+        assertEquals(1, publisher.publishCount)
+    }
+
+    @Test
     fun `oczekujące usunięcie nie jest ponownie pobierane z api`() = runBlocking {
         val id = "listing-1"
         val local = FakeListingRepository(emptyList())
@@ -148,6 +175,22 @@ class SyncingListingRepositoryTest {
 
         override suspend fun deleteListing(id: String) {
             listings.removeAll { it.id == id }
+        }
+    }
+
+    private class FakeImagePublisher(
+        private val publishedUrl: String
+    ) : ListingImagePublisher {
+        var publishCount: Int = 0
+            private set
+
+        override suspend fun publishLocalImages(listing: Listing): Listing {
+            publishCount++
+            return listing.copy(
+                imageUris = listing.imageUris.map { uri ->
+                    if (uri.startsWith("content://")) publishedUrl else uri
+                }
+            )
         }
     }
 
