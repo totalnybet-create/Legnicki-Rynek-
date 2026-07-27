@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -60,6 +62,7 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: "home"
     val showBottomBar = destinations.any { it.route == currentRoute }
+    val unreadMessageCount = uiState.conversations.sumOf { it.unreadCount }
 
     LaunchedEffect(uiState.dataError) {
         uiState.dataError?.let { error ->
@@ -111,10 +114,25 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                             selected = selected,
                             onClick = { navigateTopLevel(destination.route) },
                             icon = {
-                                Icon(
-                                    imageVector = destination.icon,
-                                    contentDescription = destination.label
-                                )
+                                if (destination.route == "messages" && unreadMessageCount > 0) {
+                                    BadgedBox(
+                                        badge = {
+                                            Badge {
+                                                Text(unreadMessageCount.coerceAtMost(99).toString())
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = destination.icon,
+                                            contentDescription = destination.label
+                                        )
+                                    }
+                                } else {
+                                    Icon(
+                                        imageVector = destination.icon,
+                                        contentDescription = destination.label
+                                    )
+                                }
                             },
                             label = { Text(destination.label) },
                             colors = NavigationBarItemDefaults.colors(
