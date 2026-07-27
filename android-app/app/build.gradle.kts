@@ -15,6 +15,30 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        val listingsApiBaseUrl = providers
+            .gradleProperty("LISTINGS_API_BASE_URL")
+            .orElse(providers.environmentVariable("LISTINGS_API_BASE_URL"))
+            .orElse("")
+            .get()
+        val listingsApiToken = providers
+            .gradleProperty("LISTINGS_API_TOKEN")
+            .orElse(providers.environmentVariable("LISTINGS_API_TOKEN"))
+            .orElse("")
+            .get()
+        fun quotedBuildConfigValue(value: String): String =
+            "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+        buildConfigField(
+            "String",
+            "LISTINGS_API_BASE_URL",
+            quotedBuildConfigValue(listingsApiBaseUrl)
+        )
+        buildConfigField(
+            "String",
+            "LISTINGS_API_TOKEN",
+            quotedBuildConfigValue(listingsApiToken)
+        )
     }
 
     buildTypes {
@@ -78,6 +102,7 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.code.gson:gson:2.14.0")
 
     ksp("androidx.room:room-compiler:$roomVersion")
 
