@@ -8,9 +8,14 @@ data class ListingValidationResult(
 )
 
 object ListingValidator {
-    private const val MaxTitleLength = 80
-    private const val MaxDescriptionLength = 5000
-    private const val MaxImages = 10
+    const val MAX_TITLE_LENGTH = 80
+    const val MAX_DESCRIPTION_LENGTH = 5000
+    const val MAX_IMAGES = 8
+
+    private val supportedImageUriPattern = Regex(
+        pattern = "^(content|file|https?)://.+",
+        option = RegexOption.IGNORE_CASE
+    )
 
     fun validate(listing: Listing): ListingValidationResult {
         val errors = linkedMapOf<String, String>()
@@ -22,8 +27,8 @@ object ListingValidator {
 
         if (title.length < 3) {
             errors["title"] = "Tytuł musi mieć co najmniej 3 znaki."
-        } else if (title.length > MaxTitleLength) {
-            errors["title"] = "Tytuł może mieć maksymalnie $MaxTitleLength znaków."
+        } else if (title.length > MAX_TITLE_LENGTH) {
+            errors["title"] = "Tytuł może mieć maksymalnie $MAX_TITLE_LENGTH znaków."
         }
 
         if (listing.price < 0) {
@@ -40,15 +45,13 @@ object ListingValidator {
 
         if (description.length < 10) {
             errors["description"] = "Opis musi mieć co najmniej 10 znaków."
-        } else if (description.length > MaxDescriptionLength) {
-            errors["description"] = "Opis może mieć maksymalnie $MaxDescriptionLength znaków."
+        } else if (description.length > MAX_DESCRIPTION_LENGTH) {
+            errors["description"] = "Opis może mieć maksymalnie $MAX_DESCRIPTION_LENGTH znaków."
         }
 
-        if (listing.imageUris.size > MaxImages) {
-            errors["imageUris"] = "Możesz dodać maksymalnie $MaxImages zdjęć."
-        }
-
-        if (listing.imageUris.any { it.isBlank() }) {
+        if (listing.imageUris.size > MAX_IMAGES) {
+            errors["imageUris"] = "Możesz dodać maksymalnie $MAX_IMAGES zdjęć."
+        } else if (listing.imageUris.any { !isSupportedImageUri(it) }) {
             errors["imageUris"] = "Lista zdjęć zawiera nieprawidłowy adres."
         }
 
@@ -57,4 +60,7 @@ object ListingValidator {
             errors = errors
         )
     }
+
+    fun isSupportedImageUri(uri: String): Boolean =
+        supportedImageUriPattern.matches(uri.trim())
 }
