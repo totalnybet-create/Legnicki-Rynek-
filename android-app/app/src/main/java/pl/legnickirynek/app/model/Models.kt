@@ -6,6 +6,13 @@ data class Category(
     val symbol: String
 )
 
+enum class ListingStatus {
+    ACTIVE,
+    RESERVED,
+    SOLD,
+    EXPIRED
+}
+
 data class Listing(
     val id: String,
     val title: String,
@@ -13,6 +20,11 @@ data class Listing(
     val location: String,
     val categoryId: String,
     val description: String,
+    val imageUris: List<String> = emptyList(),
+    val sellerName: String = "Użytkownik",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+    val status: ListingStatus = ListingStatus.ACTIVE,
     val isFavorite: Boolean = false
 )
 
