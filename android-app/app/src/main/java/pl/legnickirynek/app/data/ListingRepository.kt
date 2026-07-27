@@ -13,6 +13,7 @@ interface ListingRepository {
     suspend fun upsert(listing: Listing)
     suspend fun upsertAll(listings: List<Listing>)
     suspend fun delete(id: String)
+    suspend fun claimLegacyListings(ownerId: String, sellerName: String)
     suspend fun count(): Int
 }
 
@@ -35,6 +36,10 @@ class OfflineListingRepository(
 
     override suspend fun delete(id: String) {
         listingDao.deleteById(id)
+    }
+
+    override suspend fun claimLegacyListings(ownerId: String, sellerName: String) {
+        listingDao.claimLegacyListings(ownerId, sellerName)
     }
 
     override suspend fun count(): Int = listingDao.count()
