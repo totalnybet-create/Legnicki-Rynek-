@@ -3,7 +3,6 @@ package pl.legnickirynek.app.data.remote
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
-import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.Strictness
@@ -92,7 +91,9 @@ object ListingJsonCodec {
         val root = JsonParser.parseString(json)
         val array = when {
             root.isJsonArray -> root.asJsonArray
-            root.isJsonObject -> root.asJsonObject.get("listings")?.takeIf(JsonElement::isJsonArray)?.asJsonArray
+            root.isJsonObject -> root.asJsonObject.get("listings")
+                ?.takeIf { it.isJsonArray }
+                ?.asJsonArray
             else -> null
         } ?: throw IllegalArgumentException("Odpowiedź API nie zawiera listy ogłoszeń.")
 
@@ -116,7 +117,7 @@ object ListingJsonCodec {
                     .filter(::isRemoteImageUrl)
                     .distinct()
                     .take(12)
-                    .forEach(::add)
+                    .forEach { imageUrl -> add(imageUrl) }
             })
             addProperty("ownerId", listing.ownerId)
             addProperty("sellerName", listing.sellerName)
@@ -150,10 +151,14 @@ object ListingJsonCodec {
         val latitude = json.doubleOrNull("latitude")?.takeIf { it in -90.0..90.0 }
         val longitude = json.doubleOrNull("longitude")?.takeIf { it in -180.0..180.0 }
         val imageArray = sequenceOf("imageUrls", "imageUris")
-            .mapNotNull { key -> json.get(key)?.takeIf(JsonElement::isJsonArray)?.asJsonArray }
+            .mapNotNull { key ->
+                json.get(key)
+                    ?.takeIf { it.isJsonArray }
+                    ?.asJsonArray
+            }
             .firstOrNull()
         val imageUrls = imageArray
-            ?.mapNotNull { item -> item.takeIf(JsonElement::isJsonPrimitive)?.asString }
+            ?.mapNotNull { item -> item.takeIf { it.isJsonPrimitive }?.asString }
             ?.filter(::isRemoteImageUrl)
             ?.distinct()
             ?.take(12)
@@ -168,7 +173,8 @@ object ListingJsonCodec {
             description = description,
             imageUris = imageUrls,
             ownerId = json.stringOrNull("ownerId").orEmpty().take(160),
-            sellerName = json.stringOrNull("sellerName").orEmpty().take(120).ifBlank { "Użytkownik" },
+            sellerName = json.stringOrNull("sellerName").orEmpty().take(120)
+                .ifBlank { "Użytkownik" },
             createdAt = createdAt,
             updatedAt = updatedAt,
             status = status,
@@ -197,7 +203,9 @@ object ListingJsonCodec {
         runCatching { get(key)?.asLong }.getOrNull() ?: default
 
     private fun JsonObject.doubleOrNull(key: String): Double? =
-        runCatching { get(key)?.asDouble }.getOrNull()?.takeIf(Double::isFinite)
+        runCatching { get(key)?.asDouble }
+            .getOrNull()
+            ?.takeIf { it.isFinite() }
 
     private fun isRemoteImageUrl(value: String): Boolean =
         value.startsWith("https://", ignoreCase = true) ||
