@@ -59,6 +59,13 @@ object LocalStore {
             .apply()
     }
 
+    fun clearListings(context: Context) {
+        preferences(context)
+            .edit()
+            .remove(LISTINGS_KEY)
+            .apply()
+    }
+
     fun loadProfile(context: Context): UserProfile {
         val raw = preferences(context).getString(PROFILE_KEY, null) ?: return UserProfile()
 
