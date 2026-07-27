@@ -12,6 +12,7 @@ object LocalStore {
     private const val LISTINGS_KEY = "listings"
     private const val PROFILE_KEY = "profile"
     private const val LISTING_MIGRATION_COMPLETE_KEY = "room_listing_migration_complete"
+    private const val MESSAGE_INITIALIZATION_COMPLETE_KEY = "room_message_initialization_complete"
 
     private fun preferences(context: Context) =
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
@@ -74,6 +75,16 @@ object LocalStore {
         preferences(context)
             .edit()
             .putBoolean(LISTING_MIGRATION_COMPLETE_KEY, true)
+            .apply()
+    }
+
+    fun isMessageInitializationComplete(context: Context): Boolean =
+        preferences(context).getBoolean(MESSAGE_INITIALIZATION_COMPLETE_KEY, false)
+
+    fun markMessageInitializationComplete(context: Context) {
+        preferences(context)
+            .edit()
+            .putBoolean(MESSAGE_INITIALIZATION_COMPLETE_KEY, true)
             .apply()
     }
 
