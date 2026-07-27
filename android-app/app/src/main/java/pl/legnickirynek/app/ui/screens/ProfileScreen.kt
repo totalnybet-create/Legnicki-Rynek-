@@ -34,6 +34,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import pl.legnickirynek.app.domain.ProfileValidationError
+import pl.legnickirynek.app.domain.ProfileValidator
 import pl.legnickirynek.app.model.UserProfile
 
 @Composable
@@ -171,21 +173,19 @@ fun ProfileScreen(
                         )
                         Button(
                             onClick = {
-                                val cleanName = name.trim()
-                                val cleanEmail = email.trim()
-                                when {
-                                    cleanName.length < 2 -> {
+                                when (ProfileValidator.validate(name, email)) {
+                                    ProfileValidationError.NAME_REQUIRED -> {
                                         message = "Podaj imię."
                                         messageIsError = true
                                     }
 
-                                    !cleanEmail.contains("@") || !cleanEmail.contains(".") -> {
+                                    ProfileValidationError.EMAIL_INVALID -> {
                                         message = "Podaj prawidłowy adres e-mail."
                                         messageIsError = true
                                     }
 
-                                    else -> {
-                                        onLogin(cleanName, cleanEmail)
+                                    null -> {
+                                        onLogin(name.trim(), email.trim())
                                         message = "Zalogowano."
                                         messageIsError = false
                                     }
