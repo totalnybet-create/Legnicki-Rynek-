@@ -7,6 +7,12 @@ data class ListingValidationResult(
     val errors: Map<String, String>
 )
 
+class ListingValidationException(
+    val fieldErrors: Map<String, String>
+) : IllegalArgumentException(
+    fieldErrors.values.firstOrNull() ?: "Nieprawidłowe dane ogłoszenia."
+)
+
 object ListingValidator {
     const val MAX_TITLE_LENGTH = 80
     const val MAX_DESCRIPTION_LENGTH = 5000
@@ -59,6 +65,14 @@ object ListingValidator {
             isValid = errors.isEmpty(),
             errors = errors
         )
+    }
+
+    fun requireValid(listing: Listing): Listing {
+        val result = validate(listing)
+        if (!result.isValid) {
+            throw ListingValidationException(result.errors)
+        }
+        return listing
     }
 
     fun isSupportedImageUri(uri: String): Boolean =
