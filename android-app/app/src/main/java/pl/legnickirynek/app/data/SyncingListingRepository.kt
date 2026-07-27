@@ -4,13 +4,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import pl.legnickirynek.app.data.remote.RemoteListingService
+import pl.legnickirynek.app.data.remote.RemoteMediaService
 import pl.legnickirynek.app.model.Listing
 
 class SyncingListingRepository(
     private val localRepository: ListingRepository,
     private val remoteService: RemoteListingService,
     private val syncStore: ListingSyncStateStore,
-    private val imagePublisher: ListingImagePublisher = PassThroughListingImagePublisher
+    private val imagePublisher: ListingImagePublisher = defaultImagePublisher(
+        syncStore = syncStore,
+        remoteService = remoteService
+    )
 ) : ListingRepository {
     private val syncMutex = Mutex()
 
@@ -130,9 +134,9 @@ class SyncingListingRepository(
                         val merged = mergeRemoteIntoLocal(remote = remote, local = local)
                         val prepared = prepareForRemote(merged)
                         localRepository.upsert(prepared)
-                        if (prepared.imageUris.any(::isLocalContentUri)) {
-                            // Pozostaw lokalne URI do ponowienia przy następnym odświeżeniu.
-                        } else if (prepared.imageUris != remote.imageUris) {
+                        if (prepared.imageUris.none(::isLocalContentUri) &&
+                            prepared.imageUris != remote.imageUris
+                        ) {
                             remoteService.upsertListing(prepared)
                             pushed++
                         }
@@ -159,8 +163,7 @@ class SyncingListingRepository(
                     local.updatedAt == remote.updatedAt &&
                     local.imageUris.any(::isLocalContentUri) -> {
                     runCatching {
-                        val prepared = prepareForRemote(local)
-                        remoteService.upsertListing(prepared)
+                        remoteService.upsertListing(prepareForRemote(local))
                     }
                         .onSuccess { pushed++ }
                         .onFailure { error ->
@@ -205,4 +208,20 @@ class SyncingListingRepository(
 
     private fun isLocalContentUri(value: String): Boolean =
         value.startsWith("content://", ignoreCase = true)
+
+    companion object {
+        private fun defaultImagePublisher(
+            syncStore: ListingSyncStateStore,
+            remoteService: RemoteListingService
+        ): ListingImagePublisher = if (
+            syncStore is ListingSyncStore && remoteService is RemoteMediaService
+        ) {
+            AndroidListingImagePublisher(
+                context = syncStore.appContext,
+                remoteMediaService = remoteService
+            )
+        } else {
+            PassThroughListingImagePublisher
+        }
+    }
 }
