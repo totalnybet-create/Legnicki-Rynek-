@@ -7,14 +7,26 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MessageDao {
-    @Query("SELECT * FROM conversations ORDER BY updatedAt DESC")
-    fun observeConversations(): Flow<List<ConversationEntity>>
+    @Query(
+        "SELECT * FROM conversations " +
+            "WHERE accountId = :accountId ORDER BY updatedAt DESC"
+    )
+    fun observeConversations(accountId: String): Flow<List<ConversationEntity>>
 
-    @Query("SELECT * FROM conversations WHERE id = :conversationId LIMIT 1")
-    fun observeConversation(conversationId: String): Flow<ConversationEntity?>
+    @Query(
+        "SELECT * FROM conversations " +
+            "WHERE id = :conversationId AND accountId = :accountId LIMIT 1"
+    )
+    fun observeConversation(accountId: String, conversationId: String): Flow<ConversationEntity?>
 
-    @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY sentAt ASC")
-    fun observeMessages(conversationId: String): Flow<List<MessageEntity>>
+    @Query(
+        "SELECT messages.* FROM messages " +
+            "INNER JOIN conversations ON conversations.id = messages.conversationId " +
+            "WHERE messages.conversationId = :conversationId " +
+            "AND conversations.accountId = :accountId " +
+            "ORDER BY messages.sentAt ASC"
+    )
+    fun observeMessages(accountId: String, conversationId: String): Flow<List<MessageEntity>>
 
     @Upsert
     suspend fun upsertConversation(conversation: ConversationEntity)
@@ -31,9 +43,10 @@ interface MessageDao {
     @Query(
         "UPDATE conversations " +
             "SET lastMessage = :lastMessage, updatedAt = :updatedAt, unreadCount = :unreadCount " +
-            "WHERE id = :conversationId"
+            "WHERE id = :conversationId AND accountId = :accountId"
     )
     suspend fun updateConversationPreview(
+        accountId: String,
         conversationId: String,
         lastMessage: String,
         updatedAt: Long,
@@ -42,15 +55,29 @@ interface MessageDao {
 
     @Query(
         "UPDATE messages SET isRead = 1 " +
-            "WHERE conversationId = :conversationId AND sentByCurrentUser = 0"
+            "WHERE conversationId = :conversationId AND sentByCurrentUser = 0 " +
+            "AND EXISTS (SELECT 1 FROM conversations " +
+            "WHERE id = :conversationId AND accountId = :accountId)"
     )
-    suspend fun markIncomingMessagesRead(conversationId: String)
+    suspend fun markIncomingMessagesRead(accountId: String, conversationId: String)
 
-    @Query("UPDATE conversations SET unreadCount = 0 WHERE id = :conversationId")
-    suspend fun clearUnreadCount(conversationId: String)
+    @Query(
+        "UPDATE conversations SET unreadCount = 0 " +
+            "WHERE id = :conversationId AND accountId = :accountId"
+    )
+    suspend fun clearUnreadCount(accountId: String, conversationId: String)
 
-    @Query("DELETE FROM conversations WHERE id = :conversationId")
-    suspend fun deleteConversation(conversationId: String)
+    @Query(
+        "DELETE FROM conversations " +
+            "WHERE id = :conversationId AND accountId = :accountId"
+    )
+    suspend fun deleteConversation(accountId: String, conversationId: String)
+
+    @Query(
+        "UPDATE conversations SET accountId = :accountId " +
+            "WHERE accountId = ''"
+    )
+    suspend fun claimLegacyConversations(accountId: String)
 
     @Query("SELECT COUNT(*) FROM conversations")
     suspend fun conversationCount(): Int
