@@ -39,10 +39,21 @@ data class LocalEvent(
 data class Conversation(
     val id: String,
     val person: String,
+    val listingId: String?,
     val listingTitle: String,
     val lastMessage: String,
-    val time: String,
-    val unread: Boolean
+    val updatedAt: Long,
+    val unreadCount: Int = 0
+)
+
+data class ChatMessage(
+    val id: String,
+    val conversationId: String,
+    val senderName: String,
+    val body: String,
+    val sentAt: Long,
+    val sentByCurrentUser: Boolean,
+    val isRead: Boolean = false
 )
 
 data class UserProfile(
