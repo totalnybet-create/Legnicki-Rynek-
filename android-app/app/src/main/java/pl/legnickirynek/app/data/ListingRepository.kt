@@ -8,14 +8,34 @@ import pl.legnickirynek.app.data.local.toModel
 import pl.legnickirynek.app.domain.ListingValidator
 import pl.legnickirynek.app.model.Listing
 
+data class ListingSyncReport(
+    val enabled: Boolean,
+    val pulled: Int = 0,
+    val pushed: Int = 0,
+    val deletedRemotely: Int = 0,
+    val errors: List<String> = emptyList()
+) {
+    val successful: Boolean
+        get() = enabled && errors.isEmpty()
+
+    companion object {
+        val Disabled = ListingSyncReport(enabled = false)
+    }
+}
+
 interface ListingRepository {
+    val remoteSyncEnabled: Boolean
+        get() = false
+
     fun observeListings(): Flow<List<Listing>>
     fun observeListing(id: String): Flow<Listing?>
+    suspend fun getAll(): List<Listing>
     suspend fun upsert(listing: Listing)
     suspend fun upsertAll(listings: List<Listing>)
     suspend fun delete(id: String)
     suspend fun claimLegacyListings(ownerId: String, sellerName: String)
     suspend fun count(): Int
+    suspend fun synchronize(): ListingSyncReport = ListingSyncReport.Disabled
 }
 
 class OfflineListingRepository(
@@ -26,6 +46,9 @@ class OfflineListingRepository(
 
     override fun observeListing(id: String): Flow<Listing?> =
         listingDao.observeById(id).map { it?.toModel() }
+
+    override suspend fun getAll(): List<Listing> =
+        listingDao.getAll().map { it.toModel() }
 
     override suspend fun upsert(listing: Listing) {
         listingDao.upsert(ListingValidator.requireValid(listing).toEntity())
