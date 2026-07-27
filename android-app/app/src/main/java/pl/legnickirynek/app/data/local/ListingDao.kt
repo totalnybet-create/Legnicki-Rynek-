@@ -24,7 +24,7 @@ interface ListingDao {
 
     @Query(
         "UPDATE listings SET ownerId = :ownerId, sellerName = :sellerName " +
-            "WHERE ownerId = '' AND id LIKE 'listing-%'"
+            "WHERE (ownerId = '' OR ownerId = 'local-device') AND id LIKE 'listing-%'"
     )
     suspend fun claimLegacyListings(ownerId: String, sellerName: String)
 
