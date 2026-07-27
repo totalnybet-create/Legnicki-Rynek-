@@ -22,9 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,7 +52,10 @@ import coil.compose.AsyncImage
 import java.text.NumberFormat
 import java.util.Locale
 import pl.legnickirynek.app.data.SampleData
+import pl.legnickirynek.app.domain.ListingSearch
+import pl.legnickirynek.app.domain.ListingSearchCriteria
 import pl.legnickirynek.app.model.Listing
+import pl.legnickirynek.app.model.ListingStatus
 
 @Composable
 fun HomeScreen(
@@ -58,12 +65,9 @@ fun HomeScreen(
     onOpenListing: (String) -> Unit,
     onToggleFavorite: (String) -> Unit
 ) {
-    var query by rememberSaveable { mutableStateOf("") }
-    val filteredListings = listings.filter {
-        query.isBlank() ||
-            it.title.contains(query, ignoreCase = true) ||
-            it.location.contains(query, ignoreCase = true)
-    }
+    var criteria by rememberSaveable { mutableStateOf(ListingSearchCriteria()) }
+    var showFilters by rememberSaveable { mutableStateOf(false) }
+    val filteredListings = ListingSearch.apply(listings, criteria)
 
     LazyColumn(
         modifier = Modifier
@@ -115,8 +119,10 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(18.dp))
                 OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
+                    value = criteria.query,
+                    onValueChange = { query ->
+                        criteria = criteria.copy(query = query.take(120))
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("Czego szukasz?") },
                     leadingIcon = {
@@ -126,8 +132,12 @@ fun HomeScreen(
                         )
                     },
                     trailingIcon = {
-                        if (query.isNotEmpty()) {
-                            IconButton(onClick = { query = "" }) {
+                        if (criteria.query.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    criteria = criteria.copy(query = "")
+                                }
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Wyczyść wyszukiwanie"
@@ -144,6 +154,33 @@ fun HomeScreen(
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
                     )
                 )
+
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${filteredListings.size} wyników",
+                        color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.82f),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    FilledTonalButton(onClick = { showFilters = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null
+                        )
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            if (criteria.activeFilterCount == 0) {
+                                "Filtry"
+                            } else {
+                                "Filtry (${criteria.activeFilterCount})"
+                            }
+                        )
+                    }
+                }
             }
         }
 
@@ -158,13 +195,22 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(SampleData.categories, key = { it.id }) { category ->
+                    val selected = criteria.categoryId == category.id
                     Card(
                         modifier = Modifier
                             .width(126.dp)
-                            .clickable(onClick = onOpenCategories),
+                            .clickable {
+                                criteria = criteria.copy(
+                                    categoryId = if (selected) null else category.id
+                                )
+                            },
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
+                            containerColor = if (selected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            }
                         )
                     ) {
                         Column(
@@ -175,6 +221,11 @@ fun HomeScreen(
                             Spacer(Modifier.height(9.dp))
                             Text(
                                 category.name,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -225,20 +276,30 @@ fun HomeScreen(
             }
         }
 
-        item { SectionTitle(title = "Polecane ogłoszenia") }
+        item {
+            SectionTitle(title = "Ogłoszenia (${filteredListings.size})")
+        }
 
         if (filteredListings.isEmpty()) {
             item {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 32.dp, vertical = 26.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Text(
-                        "Nie znaleziono pasujących ogłoszeń.",
+                        text = "Nie znaleziono ogłoszeń spełniających wybrane kryteria.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Button(
+                        onClick = {
+                            criteria = ListingSearchCriteria()
+                        }
+                    ) {
+                        Text("Wyczyść wyszukiwanie i filtry")
+                    }
                 }
             }
         } else {
@@ -250,6 +311,17 @@ fun HomeScreen(
                 )
             }
         }
+    }
+
+    if (showFilters) {
+        ListingFilterSheet(
+            criteria = criteria,
+            onApply = { updatedCriteria ->
+                criteria = updatedCriteria
+                showFilters = false
+            },
+            onDismiss = { showFilters = false }
+        )
     }
 }
 
@@ -308,10 +380,8 @@ fun ListingCard(
                 modifier = Modifier
                     .width(88.dp)
                     .height(88.dp)
-                    .background(
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        RoundedCornerShape(16.dp)
-                    ),
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 val thumbnail = listing.imageUris.firstOrNull()
@@ -332,6 +402,25 @@ fun ListingCard(
             }
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
+                if (listing.status != ListingStatus.ACTIVE) {
+                    Text(
+                        text = when (listing.status) {
+                            ListingStatus.RESERVED -> "Zarezerwowane"
+                            ListingStatus.SOLD -> "Sprzedane"
+                            ListingStatus.EXPIRED -> "Wygasłe"
+                            ListingStatus.ACTIVE -> ""
+                        },
+                        color = when (listing.status) {
+                            ListingStatus.RESERVED -> MaterialTheme.colorScheme.tertiary
+                            ListingStatus.SOLD,
+                            ListingStatus.EXPIRED -> MaterialTheme.colorScheme.onSurfaceVariant
+                            ListingStatus.ACTIVE -> MaterialTheme.colorScheme.primary
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Spacer(Modifier.height(3.dp))
+                }
                 Text(
                     listing.title,
                     fontSize = 17.sp,
