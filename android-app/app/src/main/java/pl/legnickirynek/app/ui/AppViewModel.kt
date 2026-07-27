@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pl.legnickirynek.app.data.GeocodingRepository
 import pl.legnickirynek.app.data.LegnicaCalendarEventsRepository
 import pl.legnickirynek.app.data.LegnicaRssNewsRepository
 import pl.legnickirynek.app.data.ListingRepository
@@ -18,6 +19,7 @@ import pl.legnickirynek.app.data.LocalEventsRepository
 import pl.legnickirynek.app.data.LocalNewsRepository
 import pl.legnickirynek.app.data.LocalStore
 import pl.legnickirynek.app.data.MessageRepository
+import pl.legnickirynek.app.data.NominatimGeocodingRepository
 import pl.legnickirynek.app.data.OfflineListingRepository
 import pl.legnickirynek.app.data.OfflineMessageRepository
 import pl.legnickirynek.app.data.OpenMeteoWeatherRepository
@@ -67,6 +69,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val localNewsRepository: LocalNewsRepository = LegnicaRssNewsRepository(httpClient)
     private val localEventsRepository: LocalEventsRepository =
         LegnicaCalendarEventsRepository(httpClient)
+    private val geocodingRepository: GeocodingRepository =
+        NominatimGeocodingRepository(httpClient)
 
     private val _uiState = MutableStateFlow(
         AppUiState(
@@ -140,7 +144,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 current.copy(
                     weather = weatherResult.getOrNull() ?: current.weather,
                     events = eventsResult.getOrNull()
-                        ?.takeIf(List<LocalEvent>::isNotEmpty)
+                        ?.takeIf { it.isNotEmpty() }
                         ?: current.events,
                     localNews = newsResult.getOrNull() ?: current.localNews,
                     localDataLoading = false,
@@ -160,7 +164,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         val newListings = ListingOperations.add(
             listings = currentListings,
-            listing = listing,
+            listing = listing.copy(latitude = null, longitude = null),
             ownerId = ownerId,
             sellerName = sellerName
         )
@@ -169,6 +173,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         applyListingChange(newListings) {
             listingRepository.upsert(listingToInsert)
         }
+        geocodeListing(listingToInsert.id, listingToInsert.location)
     }
 
     fun updateListing(listing: Listing) {
@@ -181,11 +186,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             setDataError("Nie masz uprawnień do edycji tego ogłoszenia.")
             return
         }
-        if (!validateListing(listing)) return
+
+        val locationChanged = !existingListing.location.equals(
+            listing.location,
+            ignoreCase = true
+        )
+        val listingForUpdate = if (locationChanged) {
+            listing.copy(latitude = null, longitude = null)
+        } else {
+            listing.copy(
+                latitude = existingListing.latitude,
+                longitude = existingListing.longitude
+            )
+        }
+        if (!validateListing(listingForUpdate)) return
 
         val newListings = ListingOperations.update(
             listings = _uiState.value.listings,
-            listing = listing,
+            listing = listingForUpdate,
             updatedAt = System.currentTimeMillis()
         )
         val updatedListing = newListings.firstOrNull { it.id == listing.id }
@@ -196,6 +214,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         applyListingChange(newListings) {
             listingRepository.upsert(updatedListing)
+        }
+        if (locationChanged || !updatedListing.hasCoordinates) {
+            geocodeListing(updatedListing.id, updatedListing.location)
         }
     }
 
@@ -374,6 +395,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearDataError() {
         _uiState.update { it.copy(dataError = null) }
+    }
+
+    private fun geocodeListing(listingId: String, location: String) {
+        val requestedLocation = location.trim()
+        if (requestedLocation.isBlank()) return
+
+        viewModelScope.launch {
+            val point = runCatching {
+                geocodingRepository.geocode(requestedLocation)
+            }.getOrNull() ?: return@launch
+
+            val currentListing = _uiState.value.listings.firstOrNull { it.id == listingId }
+                ?: return@launch
+            if (!currentListing.location.equals(requestedLocation, ignoreCase = true)) {
+                return@launch
+            }
+
+            val geocodedListing = currentListing.copy(
+                latitude = point.latitude,
+                longitude = point.longitude
+            )
+            val geocodedListings = _uiState.value.listings.map { existing ->
+                if (existing.id == listingId) geocodedListing else existing
+            }
+            applyListingChange(geocodedListings) {
+                listingRepository.upsert(geocodedListing)
+            }
+        }
     }
 
     private suspend fun migrateLegacyData() {
