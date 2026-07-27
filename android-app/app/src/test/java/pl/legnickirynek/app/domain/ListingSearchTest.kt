@@ -112,6 +112,59 @@ class ListingSearchTest {
     }
 
     @Test
+    fun `filtr promienia ukrywa dalekie oferty i wpisy bez współrzędnych`() {
+        val listings = listOf(
+            listing(
+                id = "1",
+                latitude = 51.2070,
+                longitude = 16.1619
+            ),
+            listing(
+                id = "2",
+                latitude = 51.2150,
+                longitude = 16.1700
+            ),
+            listing(
+                id = "3",
+                latitude = 51.3977,
+                longitude = 16.2096
+            ),
+            listing(id = "4")
+        )
+
+        val result = ListingSearch.apply(
+            listings,
+            ListingSearchCriteria(maximumDistanceFromCenterKm = 5)
+        )
+
+        assertEquals(listOf("2", "1"), result.map { it.id })
+    }
+
+    @Test
+    fun `sortowanie najbliżej pozostawia wpisy bez współrzędnych na końcu`() {
+        val listings = listOf(
+            listing(
+                id = "1",
+                latitude = 51.3977,
+                longitude = 16.2096
+            ),
+            listing(id = "2"),
+            listing(
+                id = "3",
+                latitude = 51.2070,
+                longitude = 16.1619
+            )
+        )
+
+        val result = ListingSearch.apply(
+            listings,
+            ListingSearchCriteria(sort = ListingSort.DISTANCE_FROM_CENTER)
+        )
+
+        assertEquals(listOf("3", "1", "2"), result.map { it.id })
+    }
+
+    @Test
     fun `sortowanie po cenie działa rosnąco i malejąco`() {
         val listings = listOf(
             listing(id = "1", price = 500),
@@ -177,12 +230,13 @@ class ListingSearchTest {
             minimumPrice = 100,
             maximumPrice = 2000,
             location = "Legnica",
+            maximumDistanceFromCenterKm = 5,
             includeUnavailable = true,
             favoritesOnly = true,
             sort = ListingSort.PRICE_ASCENDING
         )
 
-        assertEquals(7, criteria.activeFilterCount)
+        assertEquals(8, criteria.activeFilterCount)
     }
 
     private fun listing(
@@ -192,7 +246,9 @@ class ListingSearchTest {
         categoryId: String = "inne",
         location: String = "Legnica",
         status: ListingStatus = ListingStatus.ACTIVE,
-        isFavorite: Boolean = false
+        isFavorite: Boolean = false,
+        latitude: Double? = null,
+        longitude: Double? = null
     ) = Listing(
         id = id,
         title = title,
@@ -203,6 +259,8 @@ class ListingSearchTest {
         createdAt = id.filter(Char::isDigit).toLongOrNull() ?: 0L,
         updatedAt = id.filter(Char::isDigit).toLongOrNull() ?: 0L,
         status = status,
-        isFavorite = isFavorite
+        isFavorite = isFavorite,
+        latitude = latitude,
+        longitude = longitude
     )
 }
