@@ -38,7 +38,8 @@ class ProfilePreferencesStore(context: Context) {
                     .ifBlank { UserIdentity.fromEmail(email) },
                 name = preferences[NAME].orEmpty(),
                 email = email,
-                loggedIn = preferences[LOGGED_IN] ?: false
+                loggedIn = preferences[LOGGED_IN] ?: false,
+                remoteSession = preferences[REMOTE_SESSION] ?: false
             )
         }
 
@@ -50,6 +51,7 @@ class ProfilePreferencesStore(context: Context) {
             preferences[NAME] = profile.name
             preferences[EMAIL] = profile.email
             preferences[LOGGED_IN] = profile.loggedIn
+            preferences[REMOTE_SESSION] = profile.remoteSession
         }
     }
 
@@ -63,6 +65,7 @@ class ProfilePreferencesStore(context: Context) {
             preferences[NAME] = profile.name
             preferences[EMAIL] = profile.email
             preferences[LOGGED_IN] = profile.loggedIn
+            preferences[REMOTE_SESSION] = profile.remoteSession
             preferences[MIGRATION_COMPLETE] = true
         }
     }
@@ -72,6 +75,7 @@ class ProfilePreferencesStore(context: Context) {
         val NAME = stringPreferencesKey("profile_name")
         val EMAIL = stringPreferencesKey("profile_email")
         val LOGGED_IN = booleanPreferencesKey("profile_logged_in")
+        val REMOTE_SESSION = booleanPreferencesKey("profile_remote_session")
         val MIGRATION_COMPLETE = booleanPreferencesKey("legacy_profile_migration_complete")
     }
 }
