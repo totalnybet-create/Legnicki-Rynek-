@@ -33,6 +33,7 @@ import pl.legnickirynek.app.ui.screens.CategoriesScreen
 import pl.legnickirynek.app.ui.screens.EditListingScreen
 import pl.legnickirynek.app.ui.screens.HomeScreen
 import pl.legnickirynek.app.ui.screens.ListingDetailScreen
+import pl.legnickirynek.app.ui.screens.ListingsCollectionScreen
 import pl.legnickirynek.app.ui.screens.MessagesScreen
 import pl.legnickirynek.app.ui.screens.ProfileScreen
 
@@ -161,8 +162,58 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                         it.sellerName == uiState.profile.name && uiState.profile.loggedIn
                     },
                     favoriteCount = uiState.listings.count { it.isFavorite },
+                    onOpenMyListings = {
+                        navController.navigate("my-listings")
+                    },
+                    onOpenFavorites = {
+                        navController.navigate("favorites")
+                    },
                     onLogin = appViewModel::login,
                     onLogout = appViewModel::logout
+                )
+            }
+            composable("favorites") {
+                ListingsCollectionScreen(
+                    title = "Ulubione",
+                    listings = uiState.listings.filter { it.isFavorite },
+                    emptyMessage = "Nie masz jeszcze ulubionych ogłoszeń.",
+                    onBack = { navController.popBackStack() },
+                    onOpenListing = ::openListing,
+                    onToggleFavorite = appViewModel::toggleFavorite,
+                    onEmptyAction = { navigateTopLevel("home") },
+                    emptyActionLabel = "Przeglądaj ogłoszenia"
+                )
+            }
+            composable("my-listings") {
+                val myListings = if (uiState.profile.loggedIn) {
+                    uiState.listings.filter { it.sellerName == uiState.profile.name }
+                } else {
+                    emptyList()
+                }
+
+                ListingsCollectionScreen(
+                    title = "Moje ogłoszenia",
+                    listings = myListings,
+                    emptyMessage = if (uiState.profile.loggedIn) {
+                        "Nie masz jeszcze własnych ogłoszeń."
+                    } else {
+                        "Zaloguj się, aby zobaczyć swoje ogłoszenia."
+                    },
+                    onBack = { navController.popBackStack() },
+                    onOpenListing = ::openListing,
+                    onToggleFavorite = appViewModel::toggleFavorite,
+                    onEmptyAction = {
+                        if (uiState.profile.loggedIn) {
+                            navigateTopLevel("add")
+                        } else {
+                            navigateTopLevel("profile")
+                        }
+                    },
+                    emptyActionLabel = if (uiState.profile.loggedIn) {
+                        "Dodaj ogłoszenie"
+                    } else {
+                        "Przejdź do logowania"
+                    }
                 )
             }
             composable("listing/{listingId}") { entry ->
