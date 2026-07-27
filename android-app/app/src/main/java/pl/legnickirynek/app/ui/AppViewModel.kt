@@ -10,13 +10,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pl.legnickirynek.app.data.LegnicaRssNewsRepository
 import pl.legnickirynek.app.data.ListingRepository
+import pl.legnickirynek.app.data.LocalNewsRepository
 import pl.legnickirynek.app.data.LocalStore
 import pl.legnickirynek.app.data.MessageRepository
 import pl.legnickirynek.app.data.OfflineListingRepository
 import pl.legnickirynek.app.data.OfflineMessageRepository
+import pl.legnickirynek.app.data.OpenMeteoWeatherRepository
 import pl.legnickirynek.app.data.ProfilePreferencesStore
 import pl.legnickirynek.app.data.SampleData
+import pl.legnickirynek.app.data.WeatherRepository
+import pl.legnickirynek.app.data.remote.UrlConnectionTextHttpClient
 import pl.legnickirynek.app.data.local.AppDatabase
 import pl.legnickirynek.app.domain.ListingAccessPolicy
 import pl.legnickirynek.app.domain.ListingOperations
@@ -25,13 +30,19 @@ import pl.legnickirynek.app.domain.UserIdentity
 import pl.legnickirynek.app.model.ChatMessage
 import pl.legnickirynek.app.model.Conversation
 import pl.legnickirynek.app.model.Listing
+import pl.legnickirynek.app.model.LocalNewsItem
 import pl.legnickirynek.app.model.ListingStatus
 import pl.legnickirynek.app.model.UserProfile
+import pl.legnickirynek.app.model.WeatherSnapshot
 
 data class AppUiState(
     val listings: List<Listing> = emptyList(),
     val conversations: List<Conversation> = emptyList(),
     val profile: UserProfile = UserProfile(),
+    val weather: WeatherSnapshot? = null,
+    val localNews: List<LocalNewsItem> = emptyList(),
+    val localDataLoading: Boolean = false,
+    val localDataError: String? = null,
     val dataError: String? = null
 )
 
@@ -46,6 +57,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     )
     private val messageRepository: MessageRepository = OfflineMessageRepository(database)
     private val profileStore = ProfilePreferencesStore(appContext)
+    private val httpClient = UrlConnectionTextHttpClient()
+    private val weatherRepository: WeatherRepository = OpenMeteoWeatherRepository(httpClient)
+    private val localNewsRepository: LocalNewsRepository = LegnicaRssNewsRepository(httpClient)
 
     private val _uiState = MutableStateFlow(
         AppUiState(
@@ -72,10 +86,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }.collect { state ->
                 _uiState.update { current ->
-                    state.copy(dataError = current.dataError)
+                    state.copy(
+                        weather = current.weather,
+                        localNews = current.localNews,
+                        localDataLoading = current.localDataLoading,
+                        localDataError = current.localDataError,
+                        dataError = current.dataError
+                    )
                 }
             }
         }
+        refreshLocalData()
     }
 
     fun observeConversation(conversationId: String): Flow<Conversation?> =
@@ -83,6 +104,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun observeMessages(conversationId: String): Flow<List<ChatMessage>> =
         messageRepository.observeMessages(conversationId)
+
+    fun refreshLocalData() {
+        _uiState.update {
+            it.copy(
+                localDataLoading = true,
+                localDataError = null
+            )
+        }
+
+        viewModelScope.launch {
+            val weatherResult = runCatching { weatherRepository.getCurrentWeather() }
+            val newsResult = runCatching { localNewsRepository.getLatestNews() }
+            val errors = listOfNotNull(
+                weatherResult.exceptionOrNull()?.message,
+                newsResult.exceptionOrNull()?.message
+            ).distinct()
+
+            _uiState.update { current ->
+                current.copy(
+                    weather = weatherResult.getOrNull() ?: current.weather,
+                    localNews = newsResult.getOrNull() ?: current.localNews,
+                    localDataLoading = false,
+                    localDataError = errors.takeIf { it.isNotEmpty() }?.joinToString(" ")
+                )
+            }
+        }
+    }
 
     fun addListing(listing: Listing) {
         if (!validateListing(listing)) return
