@@ -12,7 +12,8 @@ import pl.legnickirynek.app.model.ListingStatus
         Index(value = ["categoryId"]),
         Index(value = ["createdAt"]),
         Index(value = ["isFavorite"]),
-        Index(value = ["status"])
+        Index(value = ["status"]),
+        Index(value = ["ownerId"])
     ]
 )
 data class ListingEntity(
@@ -23,6 +24,7 @@ data class ListingEntity(
     val categoryId: String,
     val description: String,
     val imageUris: List<String>,
+    val ownerId: String,
     val sellerName: String,
     val createdAt: Long,
     val updatedAt: Long,
@@ -38,6 +40,7 @@ fun ListingEntity.toModel(): Listing = Listing(
     categoryId = categoryId,
     description = description,
     imageUris = imageUris,
+    ownerId = ownerId,
     sellerName = sellerName,
     createdAt = createdAt,
     updatedAt = updatedAt,
@@ -53,6 +56,7 @@ fun Listing.toEntity(): ListingEntity = ListingEntity(
     categoryId = categoryId,
     description = description,
     imageUris = imageUris,
+    ownerId = ownerId,
     sellerName = sellerName,
     createdAt = createdAt,
     updatedAt = updatedAt,
