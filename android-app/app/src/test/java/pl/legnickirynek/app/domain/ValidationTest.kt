@@ -7,7 +7,7 @@ import org.junit.Test
 class ValidationTest {
     @Test
     fun `poprawne ogłoszenie przechodzi walidację`() {
-        val result = ListingValidator.validate(
+        val result = ListingFormValidator.validate(
             title = "Rower miejski",
             price = "850",
             location = "Legnica",
@@ -19,7 +19,7 @@ class ValidationTest {
 
     @Test
     fun `krótki tytuł jest odrzucany`() {
-        val result = ListingValidator.validate(
+        val result = ListingFormValidator.validate(
             title = "Abc",
             price = "100",
             location = "Legnica",
@@ -31,7 +31,7 @@ class ValidationTest {
 
     @Test
     fun `nieprawidłowa cena jest odrzucana`() {
-        val result = ListingValidator.validate(
+        val result = ListingFormValidator.validate(
             title = "Poprawny tytuł",
             price = "abc",
             location = "Legnica",
@@ -43,7 +43,7 @@ class ValidationTest {
 
     @Test
     fun `pusta lokalizacja jest odrzucana`() {
-        val result = ListingValidator.validate(
+        val result = ListingFormValidator.validate(
             title = "Poprawny tytuł",
             price = "100",
             location = "   ",
@@ -55,7 +55,7 @@ class ValidationTest {
 
     @Test
     fun `krótki opis jest odrzucany`() {
-        val result = ListingValidator.validate(
+        val result = ListingFormValidator.validate(
             title = "Poprawny tytuł",
             price = "100",
             location = "Legnica",
