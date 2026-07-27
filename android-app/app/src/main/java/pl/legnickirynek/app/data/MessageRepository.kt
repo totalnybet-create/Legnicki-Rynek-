@@ -39,8 +39,7 @@ class OfflineMessageRepository(
         accountId: String,
         conversationId: String
     ): Flow<Conversation?> {
-        requireAccountId(accountId)
-        require(conversationId.isNotBlank()) { "Identyfikator rozmowy nie może być pusty." }
+        requireAccountAndConversation(accountId, conversationId)
         return messageDao.observeConversation(accountId, conversationId).map { it?.toModel() }
     }
 
@@ -48,8 +47,7 @@ class OfflineMessageRepository(
         accountId: String,
         conversationId: String
     ): Flow<List<ChatMessage>> {
-        requireAccountId(accountId)
-        require(conversationId.isNotBlank()) { "Identyfikator rozmowy nie może być pusty." }
+        requireAccountAndConversation(accountId, conversationId)
         return messageDao.observeMessages(accountId, conversationId).map { entities ->
             entities.map { it.toModel() }
         }
@@ -71,6 +69,9 @@ class OfflineMessageRepository(
         require(messages.all { it.conversationId in conversationIds }) {
             "Wiadomość musi należeć do jednej z zapisywanych rozmów."
         }
+        require(messages.all { it.body.isNotBlank() && it.body.length <= MAX_MESSAGE_LENGTH }) {
+            "Wiadomość ma nieprawidłową długość."
+        }
 
         database.withTransaction {
             messageDao.upsertConversations(ownedConversations.map { it.toEntity() })
@@ -88,31 +89,43 @@ class OfflineMessageRepository(
             "Wiadomość nie należy do wskazanej rozmowy."
         }
         require(message.body.isNotBlank()) { "Treść wiadomości nie może być pusta." }
+        require(message.body.length <= MAX_MESSAGE_LENGTH) {
+            "Wiadomość może mieć maksymalnie $MAX_MESSAGE_LENGTH znaków."
+        }
 
         database.withTransaction {
             messageDao.upsertConversation(conversation.toEntity())
             messageDao.upsertMessage(message.toEntity())
-            messageDao.updateConversationPreview(
+            val updatedRows = messageDao.updateConversationPreview(
                 accountId = accountId,
                 conversationId = conversation.id,
                 lastMessage = message.body,
                 updatedAt = message.sentAt,
                 unreadCount = conversation.unreadCount
             )
+            check(updatedRows == 1) {
+                "Nie udało się zaktualizować rozmowy aktywnego konta."
+            }
         }
     }
 
     override suspend fun markConversationRead(accountId: String, conversationId: String) {
-        requireAccountAndConversation(accountId, conversationId)
+        requireExistingConversation(accountId, conversationId)
         database.withTransaction {
             messageDao.markIncomingMessagesRead(accountId, conversationId)
-            messageDao.clearUnreadCount(accountId, conversationId)
+            val updatedRows = messageDao.clearUnreadCount(accountId, conversationId)
+            check(updatedRows == 1) {
+                "Nie udało się oznaczyć rozmowy jako przeczytanej."
+            }
         }
     }
 
     override suspend fun deleteConversation(accountId: String, conversationId: String) {
-        requireAccountAndConversation(accountId, conversationId)
-        messageDao.deleteConversation(accountId, conversationId)
+        requireExistingConversation(accountId, conversationId)
+        val deletedRows = messageDao.deleteConversation(accountId, conversationId)
+        check(deletedRows == 1) {
+            "Nie udało się usunąć rozmowy aktywnego konta."
+        }
     }
 
     override suspend fun claimLegacyConversations(accountId: String) {
@@ -122,6 +135,13 @@ class OfflineMessageRepository(
 
     override suspend fun conversationCount(): Int = messageDao.conversationCount()
 
+    private suspend fun requireExistingConversation(accountId: String, conversationId: String) {
+        requireAccountAndConversation(accountId, conversationId)
+        require(messageDao.conversationExists(accountId, conversationId)) {
+            "Rozmowa nie istnieje lub nie należy do aktywnego konta."
+        }
+    }
+
     private fun requireAccountAndConversation(accountId: String, conversationId: String) {
         requireAccountId(accountId)
         require(conversationId.isNotBlank()) { "Identyfikator rozmowy nie może być pusty." }
@@ -129,5 +149,9 @@ class OfflineMessageRepository(
 
     private fun requireAccountId(accountId: String) {
         require(accountId.isNotBlank()) { "Identyfikator konta nie może być pusty." }
+    }
+
+    private companion object {
+        const val MAX_MESSAGE_LENGTH = 2_000
     }
 }
