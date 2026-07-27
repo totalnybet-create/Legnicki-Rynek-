@@ -29,7 +29,9 @@ data class ListingEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val status: ListingStatus,
-    val isFavorite: Boolean
+    val isFavorite: Boolean,
+    val latitude: Double?,
+    val longitude: Double?
 )
 
 fun ListingEntity.toModel(): Listing = Listing(
@@ -45,7 +47,9 @@ fun ListingEntity.toModel(): Listing = Listing(
     createdAt = createdAt,
     updatedAt = updatedAt,
     status = status,
-    isFavorite = isFavorite
+    isFavorite = isFavorite,
+    latitude = latitude,
+    longitude = longitude
 )
 
 fun Listing.toEntity(): ListingEntity = ListingEntity(
@@ -61,5 +65,7 @@ fun Listing.toEntity(): ListingEntity = ListingEntity(
     createdAt = createdAt,
     updatedAt = updatedAt,
     status = status,
-    isFavorite = isFavorite
+    isFavorite = isFavorite,
+    latitude = latitude,
+    longitude = longitude
 )
