@@ -96,6 +96,22 @@ class ListingSearchTest {
     }
 
     @Test
+    fun `filtr ulubionych zwraca wyłącznie oznaczone oferty`() {
+        val listings = listOf(
+            listing(id = "1", isFavorite = true),
+            listing(id = "2", isFavorite = false),
+            listing(id = "3", isFavorite = true)
+        )
+
+        val result = ListingSearch.apply(
+            listings,
+            ListingSearchCriteria(favoritesOnly = true)
+        )
+
+        assertEquals(listOf("3", "1"), result.map { it.id })
+    }
+
+    @Test
     fun `sortowanie po cenie działa rosnąco i malejąco`() {
         val listings = listOf(
             listing(id = "1", price = 500),
@@ -117,6 +133,43 @@ class ListingSearchTest {
     }
 
     @Test
+    fun `sortowanie po dacie obsługuje najnowsze i najstarsze`() {
+        val listings = listOf(
+            listing(id = "1"),
+            listing(id = "3"),
+            listing(id = "2")
+        )
+
+        val newest = ListingSearch.apply(
+            listings,
+            ListingSearchCriteria(sort = ListingSort.NEWEST)
+        )
+        val oldest = ListingSearch.apply(
+            listings,
+            ListingSearchCriteria(sort = ListingSort.OLDEST)
+        )
+
+        assertEquals(listOf("3", "2", "1"), newest.map { it.id })
+        assertEquals(listOf("1", "2", "3"), oldest.map { it.id })
+    }
+
+    @Test
+    fun `sortowanie alfabetyczne ignoruje polskie znaki`() {
+        val listings = listOf(
+            listing(id = "1", title = "Żyrandol"),
+            listing(id = "2", title = "Biurko"),
+            listing(id = "3", title = "Łóżko")
+        )
+
+        val result = ListingSearch.apply(
+            listings,
+            ListingSearchCriteria(sort = ListingSort.TITLE_ASCENDING)
+        )
+
+        assertEquals(listOf("2", "3", "1"), result.map { it.id })
+    }
+
+    @Test
     fun `licznik obejmuje tylko aktywne filtry poza tekstem wyszukiwania`() {
         val criteria = ListingSearchCriteria(
             query = "rower",
@@ -125,10 +178,11 @@ class ListingSearchTest {
             maximumPrice = 2000,
             location = "Legnica",
             includeUnavailable = true,
+            favoritesOnly = true,
             sort = ListingSort.PRICE_ASCENDING
         )
 
-        assertEquals(6, criteria.activeFilterCount)
+        assertEquals(7, criteria.activeFilterCount)
     }
 
     private fun listing(
@@ -137,7 +191,8 @@ class ListingSearchTest {
         price: Int = 100,
         categoryId: String = "inne",
         location: String = "Legnica",
-        status: ListingStatus = ListingStatus.ACTIVE
+        status: ListingStatus = ListingStatus.ACTIVE,
+        isFavorite: Boolean = false
     ) = Listing(
         id = id,
         title = title,
@@ -147,6 +202,7 @@ class ListingSearchTest {
         description = "Opis wystarczającej długości.",
         createdAt = id.filter(Char::isDigit).toLongOrNull() ?: 0L,
         updatedAt = id.filter(Char::isDigit).toLongOrNull() ?: 0L,
-        status = status
+        status = status,
+        isFavorite = isFavorite
     )
 }
