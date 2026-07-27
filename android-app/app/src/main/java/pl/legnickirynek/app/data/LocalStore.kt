@@ -11,6 +11,7 @@ object LocalStore {
     private const val PREFERENCES_NAME = "legnicki_rynek_local_store"
     private const val LISTINGS_KEY = "listings"
     private const val PROFILE_KEY = "profile"
+    private const val LISTING_MIGRATION_COMPLETE_KEY = "room_listing_migration_complete"
 
     private fun preferences(context: Context) =
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
@@ -53,32 +54,6 @@ object LocalStore {
         }.getOrDefault(emptyList())
     }
 
-    fun saveListings(context: Context, listings: List<Listing>) {
-        val array = JSONArray()
-        listings.forEach { listing ->
-            array.put(
-                JSONObject()
-                    .put("id", listing.id)
-                    .put("title", listing.title)
-                    .put("price", listing.price)
-                    .put("location", listing.location)
-                    .put("categoryId", listing.categoryId)
-                    .put("description", listing.description)
-                    .put("imageUris", JSONArray(listing.imageUris))
-                    .put("sellerName", listing.sellerName)
-                    .put("createdAt", listing.createdAt)
-                    .put("updatedAt", listing.updatedAt)
-                    .put("status", listing.status.name)
-                    .put("isFavorite", listing.isFavorite)
-            )
-        }
-
-        preferences(context)
-            .edit()
-            .putString(LISTINGS_KEY, array.toString())
-            .apply()
-    }
-
     fun loadProfile(context: Context): UserProfile {
         val raw = preferences(context).getString(PROFILE_KEY, null) ?: return UserProfile()
 
@@ -92,15 +67,13 @@ object LocalStore {
         }.getOrDefault(UserProfile())
     }
 
-    fun saveProfile(context: Context, profile: UserProfile) {
-        val item = JSONObject()
-            .put("name", profile.name)
-            .put("email", profile.email)
-            .put("loggedIn", profile.loggedIn)
+    fun isListingMigrationComplete(context: Context): Boolean =
+        preferences(context).getBoolean(LISTING_MIGRATION_COMPLETE_KEY, false)
 
+    fun markListingMigrationComplete(context: Context) {
         preferences(context)
             .edit()
-            .putString(PROFILE_KEY, item.toString())
+            .putBoolean(LISTING_MIGRATION_COMPLETE_KEY, true)
             .apply()
     }
 
