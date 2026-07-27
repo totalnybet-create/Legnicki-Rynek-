@@ -231,7 +231,7 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                     onEdit = { navController.navigate("edit/$listingId") },
                     onDelete = {
                         appViewModel.deleteListing(listingId)
-                        navController.popBackStack("home", inclusive = false)
+                        navController.popBackStack()
                     },
                     onToggleFavorite = { appViewModel.toggleFavorite(listingId) },
                     onStatusChange = { status ->
