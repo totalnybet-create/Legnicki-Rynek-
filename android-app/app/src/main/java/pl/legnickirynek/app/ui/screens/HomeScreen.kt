@@ -18,8 +18,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -31,7 +39,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,10 +47,6 @@ import java.text.NumberFormat
 import java.util.Locale
 import pl.legnickirynek.app.data.SampleData
 import pl.legnickirynek.app.model.Listing
-import pl.legnickirynek.app.ui.theme.LegnicaBackground
-import pl.legnickirynek.app.ui.theme.LegnicaCoral
-import pl.legnickirynek.app.ui.theme.LegnicaMuted
-import pl.legnickirynek.app.ui.theme.LegnicaNavy
 
 @Composable
 fun HomeScreen(
@@ -62,14 +65,14 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(LegnicaBackground),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 28.dp)
     ) {
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(LegnicaNavy)
+                    .background(MaterialTheme.colorScheme.secondary)
                     .padding(horizontal = 20.dp, vertical = 22.dp)
             ) {
                 Row(
@@ -80,25 +83,29 @@ fun HomeScreen(
                     Column {
                         Text(
                             text = "Legnicki Rynek",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSecondary,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
                         Text(
                             text = "Lokalnie i blisko",
-                            color = Color.White.copy(alpha = 0.72f),
+                            color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.74f),
                             fontSize = 13.sp
                         )
                     }
                     TextButton(onClick = onOpenProfile) {
-                        Text("Zaloguj", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Profil",
+                            color = MaterialTheme.colorScheme.onSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
 
                 Spacer(Modifier.height(22.dp))
                 Text(
                     text = "Znajdź to, czego potrzebujesz w Legnicy",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSecondary,
                     fontSize = 27.sp,
                     lineHeight = 32.sp,
                     fontWeight = FontWeight.ExtraBold
@@ -109,23 +116,29 @@ fun HomeScreen(
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("Czego szukasz?") },
-                    leadingIcon = { Text("⌕", fontSize = 22.sp) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null
+                        )
+                    },
                     trailingIcon = {
                         if (query.isNotEmpty()) {
-                            Text(
-                                text = "×",
-                                fontSize = 24.sp,
-                                modifier = Modifier.clickable { query = "" }
-                            )
+                            IconButton(onClick = { query = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Wyczyść wyszukiwanie"
+                                )
+                            }
                         }
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(18.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = LegnicaCoral,
-                        unfocusedBorderColor = Color.Transparent
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
                     )
                 )
             }
@@ -141,13 +154,15 @@ fun HomeScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(SampleData.categories) { category ->
+                items(SampleData.categories, key = { it.id }) { category ->
                     Card(
                         modifier = Modifier
                             .width(126.dp)
                             .clickable(onClick = onOpenCategories),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
@@ -173,20 +188,34 @@ fun HomeScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(SampleData.events) { event ->
+                items(SampleData.events, key = { it.id }) { event ->
                     Card(
                         modifier = Modifier.width(292.dp),
                         shape = RoundedCornerShape(22.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     ) {
                         Column(Modifier.padding(18.dp)) {
-                            Text(event.date, color = LegnicaCoral, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                event.date,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.ExtraBold
+                            )
                             Spacer(Modifier.height(6.dp))
                             Text(event.title, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(5.dp))
-                            Text(event.description, color = LegnicaMuted, maxLines = 2)
+                            Text(
+                                event.description,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2
+                            )
                             Spacer(Modifier.height(8.dp))
-                            Text(event.location, color = LegnicaNavy, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                event.location,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
@@ -203,7 +232,10 @@ fun HomeScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Nie znaleziono pasujących ogłoszeń.", color = LegnicaMuted)
+                    Text(
+                        "Nie znaleziono pasujących ogłoszeń.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         } else {
@@ -233,7 +265,11 @@ private fun SectionTitle(
         Text(title, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
         if (action != null) {
             TextButton(onClick = onAction) {
-                Text(action, color = LegnicaCoral, fontWeight = FontWeight.Bold)
+                Text(
+                    action,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -254,7 +290,9 @@ fun ListingCard(
             .padding(horizontal = 16.dp, vertical = 7.dp)
             .fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier.padding(17.dp),
@@ -264,10 +302,16 @@ fun ListingCard(
                 modifier = Modifier
                     .width(74.dp)
                     .height(74.dp)
-                    .background(LegnicaNavy.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(16.dp)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                val symbol = SampleData.categories.firstOrNull { it.id == listing.categoryId }?.symbol ?: "●"
+                val symbol = SampleData.categories
+                    .firstOrNull { it.id == listing.categoryId }
+                    ?.symbol
+                    ?: "●"
                 Text(symbol, fontSize = 31.sp)
             }
             Spacer(Modifier.width(14.dp))
@@ -280,15 +324,33 @@ fun ListingCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(formattedPrice, color = LegnicaCoral, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                Text(listing.location, color = LegnicaMuted, fontSize = 13.sp)
+                Text(
+                    formattedPrice,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    listing.location,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
             }
-            Text(
-                text = if (listing.isFavorite) "♥" else "♡",
-                color = LegnicaCoral,
-                fontSize = 27.sp,
-                modifier = Modifier.clickable(onClick = onToggleFavorite)
-            )
+            IconButton(onClick = onToggleFavorite) {
+                Icon(
+                    imageVector = if (listing.isFavorite) {
+                        Icons.Default.Favorite
+                    } else {
+                        Icons.Outlined.FavoriteBorder
+                    },
+                    contentDescription = if (listing.isFavorite) {
+                        "Usuń z ulubionych"
+                    } else {
+                        "Dodaj do ulubionych"
+                    },
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }
