@@ -39,10 +39,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import java.text.NumberFormat
 import java.util.Locale
 import pl.legnickirynek.app.data.SampleData
@@ -53,6 +55,7 @@ fun HomeScreen(
     listings: List<Listing>,
     onOpenCategories: () -> Unit,
     onOpenProfile: () -> Unit,
+    onOpenListing: (String) -> Unit,
     onToggleFavorite: (String) -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -242,6 +245,7 @@ fun HomeScreen(
             items(filteredListings, key = { it.id }) { listing ->
                 ListingCard(
                     listing = listing,
+                    onOpen = { onOpenListing(listing.id) },
                     onToggleFavorite = { onToggleFavorite(listing.id) }
                 )
             }
@@ -278,6 +282,7 @@ private fun SectionTitle(
 @Composable
 fun ListingCard(
     listing: Listing,
+    onOpen: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -288,7 +293,8 @@ fun ListingCard(
     Card(
         modifier = modifier
             .padding(horizontal = 16.dp, vertical = 7.dp)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -300,19 +306,29 @@ fun ListingCard(
         ) {
             Box(
                 modifier = Modifier
-                    .width(74.dp)
-                    .height(74.dp)
+                    .width(88.dp)
+                    .height(88.dp)
                     .background(
                         MaterialTheme.colorScheme.surfaceVariant,
                         RoundedCornerShape(16.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                val symbol = SampleData.categories
-                    .firstOrNull { it.id == listing.categoryId }
-                    ?.symbol
-                    ?: "●"
-                Text(symbol, fontSize = 31.sp)
+                val thumbnail = listing.imageUris.firstOrNull()
+                if (thumbnail == null) {
+                    val symbol = SampleData.categories
+                        .firstOrNull { it.id == listing.categoryId }
+                        ?.symbol
+                        ?: "●"
+                    Text(symbol, fontSize = 31.sp)
+                } else {
+                    AsyncImage(
+                        model = thumbnail,
+                        contentDescription = "Miniatura ogłoszenia ${listing.title}",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
