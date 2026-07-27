@@ -30,6 +30,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import pl.legnickirynek.app.ui.screens.AddListingScreen
 import pl.legnickirynek.app.ui.screens.CategoriesScreen
+import pl.legnickirynek.app.ui.screens.ConversationScreen
 import pl.legnickirynek.app.ui.screens.EditListingScreen
 import pl.legnickirynek.app.ui.screens.HomeScreen
 import pl.legnickirynek.app.ui.screens.ListingDetailScreen
@@ -79,6 +80,12 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
 
     fun openListing(id: String) {
         navController.navigate("listing/$id") {
+            launchSingleTop = true
+        }
+    }
+
+    fun openConversation(id: String) {
+        navController.navigate("conversation/$id") {
             launchSingleTop = true
         }
     }
@@ -153,7 +160,10 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                 )
             }
             composable("messages") {
-                MessagesScreen()
+                MessagesScreen(
+                    conversations = uiState.conversations,
+                    onOpenConversation = ::openConversation
+                )
             }
             composable("profile") {
                 ProfileScreen(
@@ -236,6 +246,12 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                     onToggleFavorite = { appViewModel.toggleFavorite(listingId) },
                     onStatusChange = { status ->
                         appViewModel.updateListingStatus(listingId, status)
+                    },
+                    onMessageSeller = {
+                        listing?.let { currentListing ->
+                            val conversationId = appViewModel.ensureConversation(currentListing)
+                            openConversation(conversationId)
+                        }
                     }
                 )
             }
@@ -263,6 +279,39 @@ fun LegnickiRynekApp(appViewModel: AppViewModel = viewModel()) {
                         onBack = { navController.popBackStack() }
                     )
                 }
+            }
+            composable("conversation/{conversationId}") { entry ->
+                val conversationId = entry.arguments?.getString("conversationId").orEmpty()
+                val conversationFlow = remember(conversationId) {
+                    appViewModel.observeConversation(conversationId)
+                }
+                val messagesFlow = remember(conversationId) {
+                    appViewModel.observeMessages(conversationId)
+                }
+                val conversation by conversationFlow.collectAsStateWithLifecycle(
+                    initialValue = uiState.conversations.firstOrNull { it.id == conversationId }
+                )
+                val messages by messagesFlow.collectAsStateWithLifecycle(
+                    initialValue = emptyList()
+                )
+
+                LaunchedEffect(conversationId) {
+                    appViewModel.markConversationRead(conversationId)
+                }
+
+                ConversationScreen(
+                    conversation = conversation,
+                    messages = messages,
+                    onBack = { navController.popBackStack() },
+                    onOpenListing = ::openListing,
+                    onSendMessage = { body ->
+                        appViewModel.sendMessage(conversationId, body)
+                    },
+                    onDeleteConversation = {
+                        appViewModel.deleteConversation(conversationId)
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }
