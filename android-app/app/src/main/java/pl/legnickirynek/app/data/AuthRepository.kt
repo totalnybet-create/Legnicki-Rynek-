@@ -159,7 +159,7 @@ object AuthJsonCodec {
             "Odpowiedź logowania nie zawiera tokenu dostępu."
         }
         val refreshToken = sequenceOf("refreshToken", "refresh_token")
-            .mapNotNull(sessionObject::stringOrNull)
+            .mapNotNull { key -> sessionObject.stringOrNull(key) }
             .firstOrNull()
             ?.trim()
             ?.take(8_192)
