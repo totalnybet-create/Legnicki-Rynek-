@@ -150,7 +150,7 @@ object AuthJsonCodec {
             ?.asJsonObject
             ?: root
         val accessToken = sequenceOf("accessToken", "access_token", "token")
-            .mapNotNull(sessionObject::stringOrNull)
+            .mapNotNull { key -> sessionObject.stringOrNull(key) }
             .firstOrNull()
             ?.trim()
             ?.take(8_192)
