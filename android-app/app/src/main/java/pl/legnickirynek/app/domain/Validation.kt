@@ -12,7 +12,7 @@ enum class ProfileValidationError {
     EMAIL_INVALID
 }
 
-object ListingValidator {
+object ListingFormValidator {
     fun validate(
         title: String,
         price: String,
