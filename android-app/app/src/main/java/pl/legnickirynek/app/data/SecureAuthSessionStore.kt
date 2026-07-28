@@ -45,7 +45,7 @@ class SecureAuthSessionStore(context: Context) : AuthSessionStore {
                 accessToken = cipher.decrypt(encryptedAccessToken),
                 refreshToken = preferences[REFRESH_TOKEN]
                     ?.takeIf(String::isNotBlank)
-                    ?.let(cipher::decrypt)
+                    ?.let { token -> cipher.decrypt(token) }
                     .orEmpty(),
                 expiresAtEpochMillis = preferences[EXPIRES_AT] ?: 0L
             ).takeIf(AuthSession::isValid)
@@ -60,7 +60,7 @@ class SecureAuthSessionStore(context: Context) : AuthSessionStore {
         val encryptedAccessToken = cipher.encrypt(session.accessToken)
         val encryptedRefreshToken = session.refreshToken
             .takeIf(String::isNotBlank)
-            ?.let(cipher::encrypt)
+            ?.let { token -> cipher.encrypt(token) }
             .orEmpty()
 
         dataStore.edit { preferences ->
