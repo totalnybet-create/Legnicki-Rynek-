@@ -41,7 +41,7 @@ jobs:
       - name: Wygeneruj Gradle Wrapper
         shell: bash
         run: |
-          ./android-app/gradlew -p android-app wrapper --gradle-version 8.9 --distribution-type bin
+          gradle -p android-app wrapper --gradle-version 8.9 --distribution-type bin
 
       - name: Testy jednostkowe
         shell: bash
