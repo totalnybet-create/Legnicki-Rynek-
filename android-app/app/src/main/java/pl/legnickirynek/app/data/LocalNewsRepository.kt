@@ -45,8 +45,8 @@ object LegnicaRssParser {
             runCatching {
                 setFeature("http://xml.org/sax/features/external-parameter-entities", false)
             }
-            runCatching { setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "") }
-            runCatching { setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "") }
+            runCatching { setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "") }
+            runCatching { setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "") }
         }
         val document = factory.newDocumentBuilder().parse(
             InputSource(StringReader(xml))
